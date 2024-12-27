@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rust-roveri-api = { git = "ssh://git@github.com/RustRoveri/rust-roveri-api.git" }
+wg_2024 = { git = "https://github.com/WGL-2024/WGL_repo_2024.git", features = ["serialize"] }
+crossbeam-channel = "0.5.14"

@@ -60,27 +60,25 @@ impl Server {
     }
 
     fn handle_fragment(&mut self, fragment: Fragment, session_id: SessionId) {
-        let res = self
+        match self
             .session_buffer_manager
-            .insert_fragment(fragment, session_id);
-
-        match res {
-            Ok(status) => match status {
-                FragmentBufferStatus::Complete => {
-                    let assembled = match self.session_buffer_manager.retrieve_assembled(session_id)
-                    {
-                        Ok(str) => str,
-                        Err(err) => todo!(),
-                    };
-
-                    todo!();
+            .insert_fragment(fragment, session_id)
+        {
+            Ok(FragmentBufferStatus::Complete) => {
+                match self.session_buffer_manager.retrieve_assembled(session_id) {
+                    Ok(assembled) => todo!(),
+                    Err(_) => todo!(),
                 }
-                FragmentBufferStatus::Incomplete => todo!(),
-            },
-            Err(err) => match err {
-                InsertFragmentError::IndexOutOfBounds => todo!(),
-                InsertFragmentError::CapacityDoesNotMatch => todo!(),
-            },
+            }
+            Ok(FragmentBufferStatus::Incomplete) => {
+                todo!()
+            }
+            Err(InsertFragmentError::IndexOutOfBounds) => {
+                todo!()
+            }
+            Err(InsertFragmentError::CapacityDoesNotMatch) => {
+                todo!()
+            }
         }
     }
 }

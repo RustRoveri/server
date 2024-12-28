@@ -66,7 +66,15 @@ impl Server {
 
         match res {
             Ok(status) => match status {
-                FragmentBufferStatus::Complete => todo!(),
+                FragmentBufferStatus::Complete => {
+                    let assembled = match self.session_buffer_manager.retrieve_assembled(session_id)
+                    {
+                        Ok(str) => str,
+                        Err(err) => todo!(),
+                    };
+
+                    todo!();
+                }
                 FragmentBufferStatus::Incomplete => todo!(),
             },
             Err(err) => match err {

@@ -1,0 +1,84 @@
+use bitvec::prelude::*;
+use std::{collections::VecDeque, usize};
+use wg_2024::{network::NodeId, packet::NodeType};
+
+const NETWORK_SIZE: usize = 256;
+
+pub struct Topology {
+    graph: [BitArray<u8>; NETWORK_SIZE],
+    types: [NodeType; NETWORK_SIZE],
+}
+
+impl Topology {
+    pub fn new() -> Self {
+        Self {
+            graph: [BitArray::new(0); NETWORK_SIZE],
+            types: [NodeType::Drone; NETWORK_SIZE],
+        }
+    }
+
+    pub fn insert_edge(&mut self, node1: (NodeId, NodeType), node2: (NodeId, NodeType)) {
+        let node1_id = node1.0 as usize;
+        let node2_id = node2.0 as usize;
+
+        self.graph[node1_id].set(node2_id, true);
+        self.graph[node2_id].set(node1_id, true);
+
+        self.types[node1_id] = node1.1;
+        self.types[node2_id] = node2.1;
+    }
+
+    pub fn remove_edge(&mut self, node1_id: NodeId, node2_id: NodeId) {
+        let n1_id = node1_id as usize;
+        let n2_id = node2_id as usize;
+
+        self.graph[n1_id].set(n2_id, false);
+        self.graph[n2_id].set(n1_id, false);
+    }
+
+    pub fn bfs(&self, source: NodeId, dest: NodeId) -> Result<Vec<NodeId>, &str> {
+        let source_id = source as usize;
+        let dest_id = dest as usize;
+
+        if source == dest {
+            return Err("Unexpected: Source is dest");
+        }
+
+        let mut visited = vec![false; NETWORK_SIZE];
+        let mut parent = vec![None; NETWORK_SIZE];
+        let mut queue = VecDeque::new();
+
+        visited[source_id] = true;
+        queue.push_back(source_id);
+
+        while let Some(current) = queue.pop_front() {
+            for (neighbor, _) in self.graph[current].iter_ones().enumerate() {
+                if !visited[neighbor] {
+                    visited[neighbor] = true;
+                    parent[neighbor] = Some(current);
+                    queue.push_back(neighbor);
+
+                    if neighbor == dest_id {
+                        let mut path = vec![dest];
+                        let mut current_node = dest_id;
+
+                        while let Some(p) = parent[current_node] {
+                            path.push(p as NodeId);
+                            current_node = p;
+                        }
+
+                        path.reverse();
+                        return Ok(path);
+                    }
+                }
+            }
+        }
+
+        Err("No path found")
+    }
+
+    pub fn reset(&mut self) {
+        self.graph = [BitArray::new(0); NETWORK_SIZE];
+        self.types = [NodeType::Drone; NETWORK_SIZE];
+    }
+}

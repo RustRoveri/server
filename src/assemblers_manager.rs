@@ -6,11 +6,11 @@ use crate::fragment_buffer::{
     FragmentBuffer, FragmentBufferStatus, InsertFragmentError, RetrieveError,
 };
 
-pub struct SessionBufferManager {
+pub struct AssemblersManager {
     assembly_buffer: HashMap<SessionId, FragmentBuffer>,
 }
 
-impl SessionBufferManager {
+impl AssemblersManager {
     pub fn new() -> Self {
         Self {
             assembly_buffer: HashMap::new(),

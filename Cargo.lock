@@ -68,7 +68,7 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#8582bf9b035b62686dee1fca8c232459ed0b295e"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#3f81ba3985fe21782a6ce898e8af3113e7df57b1"
 dependencies = [
  "crossbeam-channel",
  "serde",

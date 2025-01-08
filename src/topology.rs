@@ -1,12 +1,23 @@
 use bitvec::prelude::*;
-use std::{collections::VecDeque, usize};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+    usize,
+};
 use wg_2024::{network::NodeId, packet::NodeType};
 
 const NETWORK_SIZE: usize = 256;
+const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
 
 pub struct Topology {
     graph: [BitArray<u8>; NETWORK_SIZE],
     types: [NodeType; NETWORK_SIZE],
+    last_reset: Instant,
+}
+
+pub enum RoutingError {
+    NoPathFound,
+    SourceIsDest,
 }
 
 impl Topology {
@@ -14,6 +25,7 @@ impl Topology {
         Self {
             graph: [BitArray::new(0); NETWORK_SIZE],
             types: [NodeType::Drone; NETWORK_SIZE],
+            last_reset: Instant::now(),
         }
     }
 
@@ -36,12 +48,12 @@ impl Topology {
         self.graph[n2_id].set(n1_id, false);
     }
 
-    pub fn bfs(&self, source: NodeId, dest: NodeId) -> Result<Vec<NodeId>, &str> {
+    pub fn bfs(&self, source: NodeId, dest: NodeId) -> Result<Vec<NodeId>, RoutingError> {
         let source_id = source as usize;
         let dest_id = dest as usize;
 
         if source == dest {
-            return Err("Unexpected: Source is dest");
+            return Err(RoutingError::SourceIsDest);
         }
 
         let mut visited = vec![false; NETWORK_SIZE];
@@ -74,11 +86,17 @@ impl Topology {
             }
         }
 
-        Err("No path found")
+        Err(RoutingError::NoPathFound)
     }
 
     pub fn reset(&mut self) {
         self.graph = [BitArray::new(0); NETWORK_SIZE];
         self.types = [NodeType::Drone; NETWORK_SIZE];
+
+        self.last_reset = Instant::now()
+    }
+
+    pub fn is_updating(&self) -> bool {
+        self.last_reset.elapsed() < ESTIMATED_UPDATE_TIME
     }
 }

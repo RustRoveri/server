@@ -1,6 +1,6 @@
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
 
-pub enum FragmentBufferStatus {
+pub enum AssemblerStatus {
     Complete,
     Incomplete,
 }
@@ -15,15 +15,15 @@ pub enum RetrieveError {
     UnknownSessionId,
 }
 
-pub struct FragmentBuffer {
+pub struct Assembler {
     data: Vec<Option<[u8; FRAGMENT_DSIZE]>>,
     fragments_left: usize,
 }
 
-impl FragmentBuffer {
+impl Assembler {
     pub fn new(total_fragments: usize) -> Self {
         Self {
-            data: Vec::with_capacity(total_fragments),
+            data: vec![None; total_fragments],
             fragments_left: total_fragments,
         }
     }
@@ -35,7 +35,7 @@ impl FragmentBuffer {
     pub fn insert_fragment(
         &mut self,
         fragment: Fragment,
-    ) -> Result<FragmentBufferStatus, InsertFragmentError> {
+    ) -> Result<AssemblerStatus, InsertFragmentError> {
         let index = fragment.fragment_index as usize;
         let total_fragments = fragment.total_n_fragments as usize;
 
@@ -46,7 +46,7 @@ impl FragmentBuffer {
 
         //check if index is in bounds
         if index >= self.data.len() {
-            return Err(InsertFragmentError::CapacityDoesNotMatch);
+            return Err(InsertFragmentError::IndexOutOfBounds);
         }
 
         //check if we are replacing or inserting the data -> decrementing fragments left number
@@ -57,9 +57,9 @@ impl FragmentBuffer {
         self.data[index] = Some(fragment.data);
 
         if self.is_complete() {
-            Ok(FragmentBufferStatus::Complete)
+            Ok(AssemblerStatus::Complete)
         } else {
-            Ok(FragmentBufferStatus::Incomplete)
+            Ok(AssemblerStatus::Incomplete)
         }
     }
 

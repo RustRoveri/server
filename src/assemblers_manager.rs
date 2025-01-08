@@ -1,13 +1,10 @@
+use crate::assembler::{Assembler, AssemblerStatus, InsertFragmentError, RetrieveError};
 use rust_roveri_api::SessionId;
 use std::collections::HashMap;
 use wg_2024::packet::Fragment;
 
-use crate::fragment_buffer::{
-    FragmentBuffer, FragmentBufferStatus, InsertFragmentError, RetrieveError,
-};
-
 pub struct AssemblersManager {
-    assembly_buffer: HashMap<SessionId, FragmentBuffer>,
+    assembly_buffer: HashMap<SessionId, Assembler>,
 }
 
 impl AssemblersManager {
@@ -21,14 +18,14 @@ impl AssemblersManager {
         &mut self,
         fragment: Fragment,
         session_id: SessionId,
-    ) -> Result<FragmentBufferStatus, InsertFragmentError> {
+    ) -> Result<AssemblerStatus, InsertFragmentError> {
         let total_fragments = fragment.total_n_fragments as usize;
 
         //get the entry or create a new entry
         let entry = self
             .assembly_buffer
             .entry(session_id)
-            .or_insert_with(|| FragmentBuffer::new(total_fragments));
+            .or_insert_with(|| Assembler::new(total_fragments));
 
         entry.insert_fragment(fragment)
     }
@@ -41,12 +38,11 @@ impl AssemblersManager {
             if !fragment_buffer.is_complete() {
                 return Err(RetrieveError::Incomplete);
             }
+
+            let fragment_buffer = self.assembly_buffer.remove(&session_id).unwrap();
+            Ok(fragment_buffer.retrieve_assembled())
         } else {
             return Err(RetrieveError::UnknownSessionId);
         }
-
-        let fragment_buffer = self.assembly_buffer.remove(&session_id).unwrap();
-
-        Ok(fragment_buffer.retrieve_assembled())
     }
 }

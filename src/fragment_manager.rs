@@ -1,9 +1,6 @@
 use rust_roveri_api::{FragmentId, SessionId};
 use std::collections::{HashMap, VecDeque};
-use wg_2024::{
-    network::{NodeId, SourceRoutingHeader},
-    packet::{Fragment, Packet, PacketType},
-};
+use wg_2024::{network::NodeId, packet::Fragment};
 
 #[derive(Clone)]
 pub struct ToBeSentFragment {

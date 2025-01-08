@@ -1,6 +1,6 @@
 mod assemblers_manager;
 mod chat_behavior;
-mod fragment_buffer;
+mod assembler;
 mod fragment_manager;
 mod media_behavior;
 mod server;

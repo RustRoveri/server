@@ -1,6 +1,6 @@
+use crate::assembler::{AssemblerStatus, InsertFragmentError, RetrieveError};
 use crate::assemblers_manager::AssemblersManager;
 use crate::chat_behavior::ChatBehavior;
-use crate::fragment_buffer::{FragmentBufferStatus, InsertFragmentError};
 use crate::fragment_manager::{FragmentManager, ToBeSentFragment};
 use crate::media_behavior::MediaBehavior;
 use crate::specialized_behavior::SpecializedBehavior;
@@ -107,7 +107,13 @@ impl Server {
     fn set_path(&mut self, path: PathBuf) {
         match self.specialized.set_path(path) {
             Ok(()) => info!("{} Updated path", self.get_prefix()),
-            Err(msg) => todo!("send error to controller"),
+            Err(_) => {
+                error!(
+                    "{} Cant update his path due to his type (not a content server)",
+                    self.get_prefix()
+                );
+                self.send_server_event(ServerEvent::UnexpectedCommand);
+            }
         }
     }
 
@@ -116,7 +122,9 @@ impl Server {
             PacketType::Ack(ack) => self.handle_ack(ack, packet.session_id),
             PacketType::Nack(nack) => self.handle_nack(nack, packet.session_id),
             PacketType::MsgFragment(fragment) => self.handle_fragment(fragment, packet.session_id),
-            PacketType::FloodRequest(flood_req) => todo!(),
+            PacketType::FloodRequest(flood_req) => {
+                self.handle_flood_request(flood_req, packet.session_id)
+            }
             PacketType::FloodResponse(flood_res) => self.handle_flood_response(flood_res),
         }
     }
@@ -152,37 +160,73 @@ impl Server {
             .assemblers_manager
             .insert_fragment(fragment, session_id)
         {
-            Ok(FragmentBufferStatus::Complete) => {
+            Ok(AssemblerStatus::Complete) => {
                 match self.assemblers_manager.retrieve_assembled(session_id) {
                     Ok(assembled) => todo!(),
-                    Err(_) => todo!(),
+                    Err(RetrieveError::Incomplete) => warn!(
+                        "{} Tryed to assemble an incomplete message",
+                        self.get_prefix()
+                    ),
+                    Err(RetrieveError::UnknownSessionId) => warn!(
+                        "{} Tryed to assemble a message with an uknown session id",
+                        self.get_prefix()
+                    ),
                 }
             }
-            Ok(FragmentBufferStatus::Incomplete) => {
-                todo!()
-            }
             Err(InsertFragmentError::IndexOutOfBounds) => {
-                todo!()
+                warn!(
+                    "{} Tryed to insert a fragment into buffer with an out of bounds index",
+                    self.get_prefix()
+                );
             }
             Err(InsertFragmentError::CapacityDoesNotMatch) => {
-                todo!()
+                warn!(
+                    "{} Tryed to insert a fragment into buffer with a non matching capacity",
+                    self.get_prefix()
+                );
             }
+            _ => {}
         }
     }
 
-    fn handle_flood_response(&mut self, flood_res: FloodResponse) {
-        let starter_node = match flood_res.path_trace.get(0) {
-            Some(node) => node.0,
-            None => todo!(),
+    fn handle_flood_request(&mut self, flood_req: FloodRequest, session_id: SessionId) {
+        self.begin_flood_response(flood_req, session_id);
+    }
+
+    fn begin_flood_response(&self, req: FloodRequest, session_id: u64) {
+        let flood_res = FloodResponse {
+            flood_id: req.flood_id,
+            path_trace: {
+                let mut trace = req.path_trace;
+                trace.push((self.id, NodeType::Server));
+                trace
+            },
         };
 
+        let flood_res_packet = Packet {
+            routing_header: SourceRoutingHeader {
+                hop_index: 1,
+                hops: flood_res
+                    .path_trace
+                    .iter()
+                    .map(|(id, _)| *id)
+                    .rev()
+                    .collect(),
+            },
+            pack_type: PacketType::FloodResponse(flood_res),
+            session_id,
+        };
+
+        self.send_packet(flood_res_packet);
+    }
+
+    fn handle_flood_response(&mut self, flood_res: FloodResponse) {
         for (node1, node2) in flood_res
             .path_trace
             .iter()
             .zip(flood_res.path_trace.iter().skip(1))
         {
             self.topology.insert_edge(*node1, *node2);
-            todo!("be sure to not update the server type");
         }
     }
 

@@ -50,7 +50,7 @@ impl Assembler {
         }
 
         //check if we are replacing or inserting the data -> decrementing fragments left number
-        if self.data.get(index).is_none() {
+        if self.data[index].is_none() {
             self.fragments_left -= 1;
         }
 

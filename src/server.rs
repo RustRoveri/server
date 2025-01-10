@@ -364,3 +364,58 @@ impl Server {
         format!("[SERVER {}]", self.id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crossbeam_channel::unbounded;
+    use crossbeam_channel::{select_biased, Receiver, Sender};
+    use rust_roveri_api::ClientCommand;
+    use rust_roveri_api::ContentResponse;
+    use rust_roveri_api::ContentType;
+    use rust_roveri_api::ServerCommand;
+    use rust_roveri_api::ServerEvent;
+    use rust_roveri_api::ServerType;
+    use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
+    use std::collections::hash_map::Entry;
+    use std::collections::HashMap;
+    use std::thread;
+    use std::time::Duration;
+    use wg_2024::controller::DroneCommand;
+    use wg_2024::controller::DroneEvent;
+    use wg_2024::drone::Drone;
+    use wg_2024::network::{NodeId, SourceRoutingHeader};
+    use wg_2024::packet::{
+        Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet, PacketType,
+        FRAGMENT_DSIZE,
+    };
+
+    use crate::Server;
+
+    #[test]
+    fn add_drone_test() {
+        // Create drone 1 channels
+        const DRONE_1_ID: NodeId = 71;
+        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+
+        //Create Server
+        const SERVER_ID: NodeId = 72;
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (s00, r01) = unbounded::<ServerCommand>();
+        let (s10, r11) = unbounded::<ServerEvent>();
+
+        let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        s00.send(ServerCommand::AddDrone(
+            DRONE_1_ID,
+            packet_recv_tx_1.clone(),
+        ));
+
+        thread::sleep(Duration::from_millis(100));
+        s00.send(ServerCommand::Crash);
+        assert!(server_handle.join().is_ok(), "Server panicked");
+    }
+}

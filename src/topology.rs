@@ -10,7 +10,7 @@ const NETWORK_SIZE: usize = 256;
 const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
 
 pub struct Topology {
-    graph: [BitArray<u8>; NETWORK_SIZE],
+    graph: [BitArray<[u8; 32]>; NETWORK_SIZE],
     types: [NodeType; NETWORK_SIZE],
     last_reset: Instant,
 }
@@ -23,7 +23,7 @@ pub enum RoutingError {
 impl Topology {
     pub fn new() -> Self {
         Self {
-            graph: [BitArray::new(NETWORK_SIZE as u8); NETWORK_SIZE],
+            graph: [BitArray::new([0; 32]); NETWORK_SIZE],
             types: [NodeType::Drone; NETWORK_SIZE],
             last_reset: Instant::now(),
         }
@@ -90,7 +90,7 @@ impl Topology {
     }
 
     pub fn reset(&mut self) {
-        self.graph = [BitArray::new(0); NETWORK_SIZE];
+        self.graph = [BitArray::new([0; 32]); NETWORK_SIZE];
         self.types = [NodeType::Drone; NETWORK_SIZE];
 
         self.last_reset = Instant::now()

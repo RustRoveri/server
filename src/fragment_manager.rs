@@ -38,6 +38,12 @@ impl FragmentManager {
         self.buffer.pop_front()
     }
 
+    pub fn insert_bulk(&mut self, fragments: Vec<ToBeSentFragment>) {
+        for fragment in fragments.into_iter() {
+            self.insert_fragment(fragment);
+        }
+    }
+
     pub fn insert_from_cache(&mut self, fragment_id: FragmentId) -> Result<(), &str> {
         let to_be_sent_fragment = match self.cache.get(&fragment_id) {
             None => return Err("Requested fragment is not in cache"),

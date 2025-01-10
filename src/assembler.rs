@@ -63,8 +63,8 @@ impl Assembler {
         }
     }
 
-    pub fn retrieve_assembled(self) -> String {
-        let mut assembled = String::with_capacity(self.data.len() * FRAGMENT_DSIZE);
+    pub fn retrieve_assembled(self) -> Vec<u8> {
+        let mut assembled = Vec::with_capacity(self.data.len() * FRAGMENT_DSIZE);
 
         for fragment in self.data {
             let fragment = match fragment {
@@ -72,12 +72,7 @@ impl Assembler {
                 None => panic!("Unexpected: fragments_left is 0 but data is None"),
             };
 
-            let fragment_as_str = match std::str::from_utf8(&fragment) {
-                Ok(res) => res,
-                Err(_) => panic!("Unexpected: cannot convert to char"),
-            };
-
-            assembled.push_str(fragment_as_str);
+            assembled.extend_from_slice(&fragment);
         }
 
         assembled

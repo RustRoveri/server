@@ -33,7 +33,7 @@ impl AssemblersManager {
     //retrieve a assembled data and remove it from the buffer
     //cost: 2 access to hashmap: O(1)
     //todo: 1 access only
-    pub fn retrieve_assembled(&mut self, session_id: SessionId) -> Result<String, RetrieveError> {
+    pub fn retrieve_assembled(&mut self, session_id: SessionId) -> Result<Vec<u8>, RetrieveError> {
         if let Some(fragment_buffer) = self.assembly_buffer.get(&session_id) {
             if !fragment_buffer.is_complete() {
                 return Err(RetrieveError::Incomplete);

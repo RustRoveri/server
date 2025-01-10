@@ -7,5 +7,6 @@ mod server;
 mod specialized_behavior;
 mod text_behavior;
 mod topology;
+mod fragmenter;
 
 pub use server::Server;

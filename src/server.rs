@@ -2,8 +2,9 @@ use crate::assembler::{AssemblerStatus, InsertFragmentError, RetrieveError};
 use crate::assemblers_manager::AssemblersManager;
 use crate::chat_behavior::ChatBehavior;
 use crate::fragment_manager::{FragmentManager, ToBeSentFragment};
+use crate::fragmenter::Fragmenter;
 use crate::media_behavior::MediaBehavior;
-use crate::specialized_behavior::SpecializedBehavior;
+use crate::specialized_behavior::{SetPathError, SpecializedBehavior};
 use crate::text_behavior::TextBehavior;
 use crate::topology::{RoutingError, Topology};
 use core::panic;
@@ -25,6 +26,7 @@ pub struct Server {
     packet_recv: Receiver<Packet>,
     controller_send: Sender<ServerEvent>,
     packet_send: HashMap<NodeId, Sender<Packet>>,
+    fragmenter: Fragmenter,
     assemblers_manager: AssemblersManager,
     fragment_manager: FragmentManager,
     topology: Topology,
@@ -46,6 +48,7 @@ impl Server {
             command_recv,
             packet_recv,
             controller_send,
+            fragmenter: Fragmenter::new(),
             assemblers_manager: AssemblersManager::new(),
             topology: Topology::new(),
             packet_send: HashMap::new(),
@@ -107,7 +110,14 @@ impl Server {
     fn set_path(&mut self, path: PathBuf) {
         match self.specialized.set_path(path) {
             Ok(()) => info!("{} Updated path", self.get_prefix()),
-            Err(_) => {
+            Err(SetPathError::FileSystem(err)) => {
+                error!(
+                    "{} Cant update his path due to file system error on specified path",
+                    self.get_prefix()
+                );
+                self.send_server_event(ServerEvent::MediaPathError(err));
+            }
+            Err(SetPathError::WrongServerType) => {
                 error!(
                     "{} Cant update his path due to his type (not a content server)",
                     self.get_prefix()
@@ -121,7 +131,9 @@ impl Server {
         match packet.pack_type {
             PacketType::Ack(ack) => self.handle_ack(ack, packet.session_id),
             PacketType::Nack(nack) => self.handle_nack(nack, packet.session_id),
-            PacketType::MsgFragment(fragment) => self.handle_fragment(fragment, packet.session_id),
+            PacketType::MsgFragment(fragment) => {
+                self.handle_fragment(fragment, packet.session_id, packet.routing_header)
+            }
             PacketType::FloodRequest(flood_req) => {
                 self.handle_flood_request(flood_req, packet.session_id)
             }
@@ -141,12 +153,14 @@ impl Server {
             }
             NackType::DestinationIsDrone => {
                 self.start_network_discovery();
-                self.fragment_manager
+                let _ = self
+                    .fragment_manager
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::ErrorInRouting(_) => {
                 self.start_network_discovery();
-                self.fragment_manager
+                let _ = self
+                    .fragment_manager
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::UnexpectedRecipient(_) => {
@@ -155,14 +169,28 @@ impl Server {
         }
     }
 
-    fn handle_fragment(&mut self, fragment: Fragment, session_id: SessionId) {
+    fn handle_fragment(
+        &mut self,
+        fragment: Fragment,
+        session_id: SessionId,
+        header: SourceRoutingHeader,
+    ) {
         match self
             .assemblers_manager
             .insert_fragment(fragment, session_id)
         {
             Ok(AssemblerStatus::Complete) => {
                 match self.assemblers_manager.retrieve_assembled(session_id) {
-                    Ok(assembled) => todo!(),
+                    Ok(assembled) => {
+                        let initiator_id = match header.hops.first() {
+                            Some(hop) => hop,
+                            None => panic!(
+                                "{} Received a packet with empty hops vec",
+                                self.get_prefix()
+                            ),
+                        };
+                        self.handle_assembled(assembled, *initiator_id);
+                    }
                     Err(RetrieveError::Incomplete) => warn!(
                         "{} Tryed to assemble an incomplete message",
                         self.get_prefix()
@@ -187,6 +215,12 @@ impl Server {
             }
             _ => {}
         }
+    }
+
+    fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) {
+        let response = self.specialized.handle_assembled(assembled, initiator_id);
+        let fragments = self.fragmenter.to_fragment_vec(response);
+        self.fragment_manager.insert_bulk(fragments);
     }
 
     fn handle_flood_request(&mut self, flood_req: FloodRequest, session_id: SessionId) {

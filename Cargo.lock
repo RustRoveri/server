@@ -59,13 +59,15 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#f842add54ec57758fa7512d49e56fb70c7385227"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#5ff09edade6fee74cc7e53ba9a0ff01d05bacfb4"
 dependencies = [
  "crossbeam-channel",
  "log",
  "postcard",
  "queues",
+ "rust-roveri",
  "rust-roveri-api",
+ "server 0.1.0 (git+ssh://git@github.com/RustRoveri/server.git)",
  "wg_2024",
 ]
 
@@ -321,6 +323,20 @@ version = "0.1.0"
 dependencies = [
  "bitvec",
  "client",
+ "crossbeam-channel",
+ "log",
+ "postcard",
+ "rust-roveri",
+ "rust-roveri-api",
+ "wg_2024",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+source = "git+ssh://git@github.com/RustRoveri/server.git#550ab886f7bcfdc9ef1fd31d235a6f457522b816"
+dependencies = [
+ "bitvec",
  "crossbeam-channel",
  "log",
  "postcard",

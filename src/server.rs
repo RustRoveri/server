@@ -76,11 +76,12 @@ impl Server {
                         self.handle_packet(packet);
                     }
                 },
+                default => {
+                    if let Some(to_be_sent_fragment) = self.fragment_manager.get_next() {
+                        self.send_fragment(to_be_sent_fragment);
+                    }
+                }
             );
-
-            if let Some(to_be_sent_fragment) = self.fragment_manager.get_next() {
-                self.send_fragment(to_be_sent_fragment);
-            }
         }
     }
 
@@ -289,7 +290,6 @@ impl Server {
 
     fn send_fragment(&mut self, to_be_sent_fragment: ToBeSentFragment) {
         let path = self.topology.bfs(self.id, to_be_sent_fragment.dest);
-        //println!("{:?}", path);
 
         match path {
             Ok(path) => {
@@ -370,7 +370,7 @@ mod tests {
     use client::client::Client;
     use crossbeam_channel::unbounded;
     use crossbeam_channel::{select_biased, Receiver, Sender};
-    use postcard::to_allocvec;
+    use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
     use rust_roveri_api::ContentResponse;
     use rust_roveri_api::ContentType;
@@ -517,12 +517,28 @@ mod tests {
             packet_recv_tx_1.clone(),
         ));
         s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/")));
-        //server_handle.join();
 
-        message_sender_tx.send((SERVER_ID, to_allocvec(&ContentRequest::List).unwrap()));
+        // LIST
+        //let request = ContentRequest::List;
+        //message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        //let (id, data) = message_receiver_rx.recv().unwrap();
+        //if let Ok(ContentResponse::List(names)) = from_bytes::<ContentResponse>(&data) {
+        //    println!("{:?}", names);
+        //}
+
+        // CONTENT
+        let request = ContentRequest::Content("ciao.txt".to_string());
+        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        let (id, data) = message_receiver_rx.recv().unwrap();
+        if let Ok(ContentResponse::Content(name, ctype, bytes)) =
+            from_bytes::<ContentResponse>(&data)
+        {
+            let text = String::from_utf8(bytes.to_vec()).unwrap();
+            println!("{}", text);
+        }
+
         //command_recv_tx_client.send(ClientCommand::Crash);
-        r11.recv();
-        message_receiver_rx.recv();
+
         thread::sleep(Duration::from_millis(100));
         assert!(client_handle.join().is_ok());
     }

@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#3f764422605a10aa8ef6c5919fb6f0e3da4ac3ed"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#c30e3697e52edb23431d5a579302f95f7f0d238d"
 dependencies = [
  "crossbeam-channel",
  "serde",

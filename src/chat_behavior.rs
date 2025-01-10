@@ -59,16 +59,12 @@ impl ChatBehavior {
 
     fn can_send_message(
         &mut self,
-        sender: &UserName,
+        sender: UserName,
         node_id: NodeId,
-        recipient: &UserName,
-    ) -> Result<NodeId, MessageError> {
-        if !self.is_auth(sender, node_id) {
-            return Err(MessageError::SenderNotLogged);
-        }
-
-        if !self.is_logged(recipient) {
-            return Err(MessageError::RecipientNotLogged);
+        recipient: UserName,
+    ) -> Result<(NodeId, UserName), MessageError> {
+        if !self.is_auth(&sender, node_id) {
+            return Err(MessageError::SenderNotLogged(sender));
         }
 
         match self.clients.entry(recipient.clone()) {
@@ -76,12 +72,12 @@ impl ChatBehavior {
                 let client = entry.get();
 
                 if client.2 {
-                    Ok(client.1)
+                    Ok((client.1, sender))
                 } else {
-                    Err(MessageError::RecipientNotLogged)
+                    Err(MessageError::RecipientNotLogged(recipient))
                 }
             }
-            Entry::Vacant(_) => Err(MessageError::RecipientNotRegistered),
+            Entry::Vacant(_) => Err(MessageError::RecipientNotRegistered(recipient)),
         }
     }
 
@@ -166,11 +162,13 @@ impl SpecializedBehavior for ChatBehavior {
                 });
             }
             ChatRequest::Message(sender, recipient, msg) => {
-                let (response, dest) =
-                    match self.can_send_message(&sender, initiator_id, &recipient) {
-                        Ok(recipient_id) => (ChatResponse::Message(sender, msg), recipient_id),
-                        Err(err) => (ChatResponse::MessageFailure(err), initiator_id),
-                    };
+                let (response, dest) = match self.can_send_message(sender, initiator_id, recipient)
+                {
+                    Ok((recipient_id, sender)) => {
+                        (ChatResponse::Message(sender, msg), recipient_id)
+                    }
+                    Err(err) => (ChatResponse::MessageFailure(err), initiator_id),
+                };
 
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,

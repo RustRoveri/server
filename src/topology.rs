@@ -23,7 +23,7 @@ pub enum RoutingError {
 impl Topology {
     pub fn new() -> Self {
         Self {
-            graph: [BitArray::new(0); NETWORK_SIZE],
+            graph: [BitArray::new(NETWORK_SIZE as u8); NETWORK_SIZE],
             types: [NodeType::Drone; NETWORK_SIZE],
             last_reset: Instant::now(),
         }

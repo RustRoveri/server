@@ -366,16 +366,18 @@ impl Server {
 
 #[cfg(test)]
 mod tests {
+    use crate::Server;
+    use client::client::Client;
     use crossbeam_channel::unbounded;
     use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::to_allocvec;
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::ContentResponse;
     use rust_roveri_api::ContentType;
     use rust_roveri_api::ServerCommand;
     use rust_roveri_api::ServerEvent;
     use rust_roveri_api::ServerType;
+    use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
@@ -390,9 +392,6 @@ mod tests {
         Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet, PacketType,
         FRAGMENT_DSIZE,
     };
-    use client::client::Client;
-
-    use crate::Server;
 
     #[test]
     fn add_drone_test() {
@@ -526,6 +525,5 @@ mod tests {
         message_receiver_rx.recv();
         thread::sleep(Duration::from_millis(100));
         assert!(client_handle.join().is_ok());
-
     }
 }

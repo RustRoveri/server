@@ -57,21 +57,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "client"
-version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#f3cc847f32690b6824cf67a5603b2b34657d9906"
-dependencies = [
- "crossbeam-channel",
- "log",
- "postcard",
- "queues",
- "rust-roveri",
- "rust-roveri-api",
- "server 0.1.0 (git+ssh://git@github.com/RustRoveri/server.git)",
- "wg_2024",
-]
-
-[[package]]
 name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -204,12 +189,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "queues"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1475abae4f8ad4998590fe3acfe20104f0a5d48fc420c817cd2c09c3f56151f0"
-
-[[package]]
 name = "quote"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -322,24 +301,10 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "bitvec",
- "client",
  "crossbeam-channel",
  "log",
  "postcard",
  "rust-roveri",
- "rust-roveri-api",
- "wg_2024",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/server.git#10a11a95c59ef40c7542f94b6d2f1f6de7ec537c"
-dependencies = [
- "bitvec",
- "crossbeam-channel",
- "log",
- "postcard",
  "rust-roveri-api",
  "wg_2024",
 ]

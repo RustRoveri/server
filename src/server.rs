@@ -289,6 +289,7 @@ impl Server {
 
     fn send_fragment(&mut self, to_be_sent_fragment: ToBeSentFragment) {
         let path = self.topology.bfs(self.id, to_be_sent_fragment.dest);
+        //println!("{:?}", path);
 
         match path {
             Ok(path) => {
@@ -310,12 +311,11 @@ impl Server {
             Err(RoutingError::NoPathFound) => {
                 //if the topology is still updating its ok to not find the path
                 //=> reinsert the packet in the buffer
-                if self.topology.is_updating() {
-                    self.fragment_manager.insert_from_cache((
-                        to_be_sent_fragment.session_id,
-                        to_be_sent_fragment.fragment.fragment_index,
-                    ));
-                } else {
+                let _ = self.fragment_manager.insert_from_cache((
+                    to_be_sent_fragment.session_id,
+                    to_be_sent_fragment.fragment.fragment_index,
+                ));
+                if !self.topology.is_updating() {
                     self.start_network_discovery();
                 }
             }
@@ -355,7 +355,7 @@ impl Server {
         if self.controller_send.send(server_event).is_err() {
             let message = format!("{} The controller is disconnected", self.get_prefix());
             error!("{}", message);
-            panic!("{}", message);
+            //panic!("{}", message);
         }
     }
 

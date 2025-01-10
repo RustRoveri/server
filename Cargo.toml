@@ -8,6 +8,7 @@ postcard = { version = "1.1.1", features = ["alloc"] }
 bitvec = "1.0.1"
 rust-roveri-api = { git = "ssh://git@github.com/RustRoveri/rust-roveri-api.git" }
 rust-roveri = { git = "ssh://git@github.com/RustRoveri/rust-roveri.git" }
+#client = { git = "ssh://git@github.com/RustRoveri/rust-roveri-client.git" }
 wg_2024 = { git = "https://github.com/WGL-2024/WGL_repo_2024.git", features = ["serialize"] }
 crossbeam-channel = "0.5.14"
 log = "0.4.22"

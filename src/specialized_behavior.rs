@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 use wg_2024::network::NodeId;
 
+#[derive(Debug)]
 pub struct AssembledResponse {
     pub data: Vec<u8>,
     pub dest: NodeId,

@@ -1,6 +1,7 @@
 use bitvec::prelude::*;
 use std::{
     collections::VecDeque,
+    fmt::Display,
     time::{Duration, Instant},
     usize,
 };
@@ -15,6 +16,7 @@ pub struct Topology {
     last_reset: Instant,
 }
 
+#[derive(Debug)]
 pub enum RoutingError {
     NoPathFound,
     SourceIsDest,
@@ -25,7 +27,7 @@ impl Topology {
         Self {
             graph: [BitArray::new([0; 32]); NETWORK_SIZE],
             types: [NodeType::Drone; NETWORK_SIZE],
-            last_reset: Instant::now(),
+            last_reset: Instant::now() - ESTIMATED_UPDATE_TIME,
         }
     }
 
@@ -64,7 +66,7 @@ impl Topology {
         queue.push_back(source_id);
 
         while let Some(current) = queue.pop_front() {
-            for (neighbor, _) in self.graph[current].iter_ones().enumerate() {
+            for neighbor in self.graph[current].iter_ones() {
                 if !visited[neighbor] {
                     visited[neighbor] = true;
                     parent[neighbor] = Some(current);
@@ -98,5 +100,25 @@ impl Topology {
 
     pub fn is_updating(&self) -> bool {
         self.last_reset.elapsed() < ESTIMATED_UPDATE_TIME
+    }
+}
+
+impl Display for Topology {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::new();
+
+        for (i, node) in self.graph.iter().enumerate() {
+            if node.count_ones() > 0 {
+                res.push_str(&format!("Node {}: ", i));
+                let connections: Vec<usize> = node.iter_ones().collect();
+                res.push_str(&format!("connected to {:?} ", connections));
+            }
+        }
+
+        if res.is_empty() {
+            res = "No connections in the topology".to_string();
+        }
+
+        write!(f, "{}", res)
     }
 }

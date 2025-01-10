@@ -2,7 +2,7 @@ use rust_roveri_api::{FragmentId, SessionId};
 use std::collections::{HashMap, VecDeque};
 use wg_2024::{network::NodeId, packet::Fragment};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ToBeSentFragment {
     pub dest: NodeId,
     pub session_id: SessionId,

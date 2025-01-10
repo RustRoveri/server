@@ -302,7 +302,6 @@ impl Server {
                     routing_header: header,
                     session_id: to_be_sent_fragment.session_id,
                 };
-
                 self.send_packet(packet);
             }
             Err(RoutingError::SourceIsDest) => {
@@ -369,7 +368,9 @@ impl Server {
 mod tests {
     use crossbeam_channel::unbounded;
     use crossbeam_channel::{select_biased, Receiver, Sender};
-    use rust_roveri_api::ClientCommand;
+    use postcard::to_allocvec;
+    use rust_roveri::RustRoveri;
+    use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::ContentResponse;
     use rust_roveri_api::ContentType;
     use rust_roveri_api::ServerCommand;
@@ -378,6 +379,7 @@ mod tests {
     use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use std::thread;
     use std::time::Duration;
     use wg_2024::controller::DroneCommand;
@@ -388,6 +390,7 @@ mod tests {
         Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet, PacketType,
         FRAGMENT_DSIZE,
     };
+    use client::client::Client;
 
     use crate::Server;
 
@@ -417,5 +420,112 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
         s00.send(ServerCommand::Crash);
         assert!(server_handle.join().is_ok(), "Server panicked");
+    }
+
+    #[test]
+    fn set_media_path() {
+        //Create Server
+        const SERVER_ID: NodeId = 72;
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (s00, r01) = unbounded::<ServerCommand>();
+        let (s10, r11) = unbounded::<ServerEvent>();
+
+        let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp")));
+
+        thread::sleep(Duration::from_millis(100));
+        s00.send(ServerCommand::Crash);
+        assert!(server_handle.join().is_ok(), "Server panicked");
+    }
+
+    #[test]
+    fn server_test() {
+        // Create browser
+        let (message_sender_tx, message_sender_rx) = unbounded();
+        let (message_receiver_tx, message_receiver_rx) = unbounded();
+        //let browser = Browser::new(message_sender_tx.clone(), message_receiver_rx);
+
+        // Create client channels
+        const CLIENT_ID: NodeId = 70;
+        let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
+        let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+
+        // Create drone 1 channels
+        const DRONE_1_ID: NodeId = 71;
+        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+
+        // Create server channels
+        const SERVER_ID: NodeId = 72;
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (s00, r01) = unbounded::<ServerCommand>();
+        let (s10, r11) = unbounded::<ServerEvent>();
+
+        // Create client
+        let mut client = Client::new(
+            CLIENT_ID,
+            packet_recv_rx_client,
+            command_recv_rx_client,
+            message_sender_rx,
+            message_receiver_tx,
+        );
+        client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
+        let client_handle = thread::spawn(move || {
+            client.run();
+        });
+
+        // Create drone 1
+        let packet_send_1 = HashMap::new();
+        let mut drone_1 = RustRoveri::new(
+            DRONE_1_ID,
+            controller_send_tx_1,
+            controller_recv_rx_1,
+            packet_recv_rx_1.clone(),
+            packet_send_1,
+            0.0,
+        );
+        let handle_1 = thread::spawn(move || drone_1.run());
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                CLIENT_ID,
+                packet_recv_tx_client.clone(),
+            ))
+            .expect("Cant add client to drone 1 neighbors");
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                SERVER_ID,
+                packet_recv_tx_server.clone(),
+            ))
+            .expect("Cant add client to drone 1 neighbors");
+
+        // Create server
+        let mut server = Server::new(
+            SERVER_ID,
+            r01,
+            packet_recv_rx_server,
+            s10,
+            ServerType::ContentText,
+        );
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        s00.send(ServerCommand::AddDrone(
+            DRONE_1_ID,
+            packet_recv_tx_1.clone(),
+        ));
+        s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/")));
+        //server_handle.join();
+
+        message_sender_tx.send((SERVER_ID, to_allocvec(&ContentRequest::List).unwrap()));
+        //command_recv_tx_client.send(ClientCommand::Crash);
+        r11.recv();
+        message_receiver_rx.recv();
+        thread::sleep(Duration::from_millis(100));
+        assert!(client_handle.join().is_ok());
+
     }
 }

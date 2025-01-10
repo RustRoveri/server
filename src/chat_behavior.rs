@@ -1,31 +1,12 @@
 use crate::specialized_behavior::{AssembledResponse, ProcessError, SpecializedBehavior};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
-use rust_roveri_api::{ChatRequest, ChatResponse, Password, UserName};
+use rust_roveri_api::{
+    ChatRequest, ChatResponse, LoginError, LogoutError, MessageError, Password, RegisterError,
+    UserName,
+};
 use std::collections::{hash_map::Entry, HashMap};
 use wg_2024::network::NodeId;
-
-pub enum RegisterError {
-    AlreadyRegistered,
-}
-
-pub enum LoginError {
-    NotRegistered,
-    AlreadyLogged,
-    WrongPassword,
-}
-
-pub enum LogoutError {
-    NotRegistered,
-    NotLogged,
-    InvalidNodeId,
-}
-
-pub enum MessageError {
-    RecipientNotLogged,
-    RecipientNotRegistered,
-    SenderNotLogged,
-}
 
 type Logged = bool;
 
@@ -188,7 +169,7 @@ impl SpecializedBehavior for ChatBehavior {
                 let (response, dest) =
                     match self.can_send_message(&sender, initiator_id, &recipient) {
                         Ok(recipient_id) => (ChatResponse::Message(sender, msg), recipient_id),
-                        Err(_) => (ChatResponse::RegisterFailure(sender), initiator_id),
+                        Err(err) => (ChatResponse::MessageFailure(err), initiator_id),
                     };
 
                 return Ok(AssembledResponse {
@@ -199,7 +180,7 @@ impl SpecializedBehavior for ChatBehavior {
             ChatRequest::Register(username, password) => {
                 let response = match self.register(username.clone(), password, initiator_id) {
                     Ok(()) => ChatResponse::ClientList(username, self.get_client_list()),
-                    Err(_) => ChatResponse::RegisterFailure(username),
+                    Err(err) => ChatResponse::RegisterFailure(username, err),
                 };
 
                 return Ok(AssembledResponse {
@@ -210,7 +191,7 @@ impl SpecializedBehavior for ChatBehavior {
             ChatRequest::Login(username, password) => {
                 let response = match self.login(&username, &password) {
                     Ok(()) => ChatResponse::ClientList(username, self.get_client_list()),
-                    Err(_) => ChatResponse::LoginFailure(username),
+                    Err(err) => ChatResponse::LoginFailure(username, err),
                 };
 
                 return Ok(AssembledResponse {
@@ -221,7 +202,7 @@ impl SpecializedBehavior for ChatBehavior {
             ChatRequest::Logout(username) => {
                 let response = match self.logout(&username, initiator_id) {
                     Ok(()) => ChatResponse::LogoutSuccess(username),
-                    Err(_) => ChatResponse::LogoutFailure(username),
+                    Err(err) => ChatResponse::LogoutFailure(username, err),
                 };
 
                 return Ok(AssembledResponse {

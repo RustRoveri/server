@@ -57,21 +57,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "client"
-version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#5ff09edade6fee74cc7e53ba9a0ff01d05bacfb4"
-dependencies = [
- "crossbeam-channel",
- "log",
- "postcard",
- "queues",
- "rust-roveri",
- "rust-roveri-api",
- "server 0.1.0 (git+ssh://git@github.com/RustRoveri/server.git)",
- "wg_2024",
-]
-
-[[package]]
 name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -168,9 +153,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.22"
+version = "0.4.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
+checksum = "3d6ea2a48c204030ee31a7d7fc72c93294c92fe87ecb1789881c9543516e1a0d"
 
 [[package]]
 name = "postcard"
@@ -202,12 +187,6 @@ checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
 dependencies = [
  "unicode-ident",
 ]
-
-[[package]]
-name = "queues"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1475abae4f8ad4998590fe3acfe20104f0a5d48fc420c817cd2c09c3f56151f0"
 
 [[package]]
 name = "quote"
@@ -269,7 +248,7 @@ dependencies = [
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#4292f060ae55d6f9f6612df6a5ec3e6dcd54b333"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#3f764422605a10aa8ef6c5919fb6f0e3da4ac3ed"
 dependencies = [
  "crossbeam-channel",
  "serde",
@@ -320,21 +299,6 @@ dependencies = [
 [[package]]
 name = "server"
 version = "0.1.0"
-dependencies = [
- "bitvec",
- "client",
- "crossbeam-channel",
- "log",
- "postcard",
- "rust-roveri",
- "rust-roveri-api",
- "wg_2024",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/server.git#550ab886f7bcfdc9ef1fd31d235a6f457522b816"
 dependencies = [
  "bitvec",
  "crossbeam-channel",

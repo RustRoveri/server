@@ -19,7 +19,7 @@ pub enum ProcessError {
     FileSystem(io::Error),
 }
 
-pub trait SpecializedBehavior {
+pub trait SpecializedBehavior: Send {
     fn set_path(&mut self, _: PathBuf) -> Result<(), SetPathError> {
         Err(SetPathError::WrongServerType)
     }

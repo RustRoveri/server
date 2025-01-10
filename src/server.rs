@@ -30,7 +30,7 @@ pub struct Server {
     assemblers_manager: AssemblersManager,
     fragment_manager: FragmentManager,
     topology: Topology,
-    specialized: Box<dyn SpecializedBehavior>,
+    specialized: Box<dyn SpecializedBehavior + Send>,
     should_terminate: bool,
     flood_id: FloodId,
 }

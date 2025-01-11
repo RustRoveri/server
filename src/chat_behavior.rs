@@ -33,11 +33,11 @@ impl ChatBehavior {
         username: UserName,
         password: Password,
         node_id: NodeId,
-    ) -> Result<(), RegisterError> {
-        match self.clients.entry(username) {
+    ) -> Result<UserName, RegisterError> {
+        match self.clients.entry(username.clone()) {
             Entry::Vacant(entry) => {
                 entry.insert((password, node_id, true));
-                Ok(())
+                Ok(username)
             }
             Entry::Occupied(_) => Err(RegisterError::AlreadyRegistered),
         }
@@ -177,7 +177,7 @@ impl SpecializedBehavior for ChatBehavior {
             }
             ChatRequest::Register(username, password) => {
                 let response = match self.register(username.clone(), password, initiator_id) {
-                    Ok(()) => ChatResponse::ClientList(username, self.get_client_list()),
+                    Ok(_) => ChatResponse::ClientList(username, self.get_client_list()),
                     Err(err) => ChatResponse::RegisterFailure(username, err),
                 };
 

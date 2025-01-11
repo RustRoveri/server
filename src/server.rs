@@ -150,7 +150,10 @@ impl Server {
     fn handle_nack(&mut self, nack: Nack, session_id: SessionId) {
         match nack.nack_type {
             NackType::Dropped => {
-                info!("Nack with NackType::Dropped received")
+                info!("Nack with NackType::Dropped received");
+                let _ = self
+                    .fragment_manager
+                    .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::DestinationIsDrone => {
                 self.start_network_discovery();
@@ -372,11 +375,11 @@ mod tests {
     use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::ContentResponse;
-    use rust_roveri_api::ContentType;
     use rust_roveri_api::ServerCommand;
     use rust_roveri_api::ServerEvent;
     use rust_roveri_api::ServerType;
+    use rust_roveri_api::{ChatRequest, ContentResponse};
+    use rust_roveri_api::{ChatResponse, ContentType};
     use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
     use std::collections::hash_map::Entry;
@@ -444,7 +447,7 @@ mod tests {
     fn server_test() {
         // Create browser
         let (message_sender_tx, message_sender_rx) = unbounded();
-        let (message_receiver_tx, message_receiver_rx) = unbounded();
+        let (message_receiver_tx, message_receiver_rx) = unbounded::<GuiMessage>();
         //let browser = Browser::new(message_sender_tx.clone(), message_receiver_rx);
 
         // Create client channels
@@ -502,13 +505,7 @@ mod tests {
             .expect("Cant add client to drone 1 neighbors");
 
         // Create server
-        let mut server = Server::new(
-            SERVER_ID,
-            r01,
-            packet_recv_rx_server,
-            s10,
-            ServerType::ContentText,
-        );
+        let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
         let server_handle = thread::spawn(move || {
             server.run();
         });
@@ -516,7 +513,7 @@ mod tests {
             DRONE_1_ID,
             packet_recv_tx_1.clone(),
         ));
-        s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/")));
+        //s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/")));
 
         // LIST
         //let request = ContentRequest::List;
@@ -527,19 +524,139 @@ mod tests {
         //}
 
         // CONTENT
-        let request = ContentRequest::Content("ciao.txt".to_string());
+        let request = ChatRequest::Register("ciao".to_string(), "cane".to_string());
+        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        let request = ChatRequest::Register("come".to_string(), "xx".to_string());
+        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        let request = ChatRequest::Register("ewe".to_string(), "casdcascd".to_string());
+        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        let request = ChatRequest::Register("cccccc".to_string(), "cascdac".to_string());
         message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
         let (id, data) = message_receiver_rx.recv().unwrap();
-        if let Ok(ContentResponse::Content(name, ctype, bytes)) =
-            from_bytes::<ContentResponse>(&data)
-        {
-            let text = String::from_utf8(bytes.to_vec()).unwrap();
-            println!("{}", text);
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+        let (id, data) = message_receiver_rx.recv().unwrap();
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+        let (id, data) = message_receiver_rx.recv().unwrap();
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+        let (id, data) = message_receiver_rx.recv().unwrap();
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
         }
 
-        //command_recv_tx_client.send(ClientCommand::Crash);
+        command_recv_tx_client.send(ClientCommand::Crash);
 
         thread::sleep(Duration::from_millis(100));
+        assert!(client_handle.join().is_ok());
+    }
+
+    #[test]
+    fn test_dropped_request() {
+        // Create browser
+        let (message_sender_tx, message_sender_rx) = unbounded();
+        let (message_receiver_tx, message_receiver_rx) = unbounded();
+
+        // Create client channels
+        const CLIENT_ID: NodeId = 70;
+        let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
+        let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+
+        // Create drone 1 channels
+        const DRONE_1_ID: NodeId = 71;
+        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+
+        // Create server channels
+        const SERVER_ID: NodeId = 72;
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
+        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+
+        // Create client
+        let mut client = Client::new(
+            CLIENT_ID,
+            packet_recv_rx_client,
+            command_recv_rx_client,
+            message_sender_rx,
+            message_receiver_tx,
+        );
+        client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
+        let client_handle = thread::spawn(move || {
+            client.run();
+        });
+
+        // Create drone 1
+        let packet_send_1 = HashMap::new();
+        let mut drone_1 = RustRoveri::new(
+            DRONE_1_ID,
+            controller_send_tx_1,
+            controller_recv_rx_1,
+            packet_recv_rx_1.clone(),
+            packet_send_1,
+            0.9,
+        );
+        let handle_1 = thread::spawn(move || drone_1.run());
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                CLIENT_ID,
+                packet_recv_tx_client.clone(),
+            ))
+            .expect("Cant add client to drone 1 neighbors");
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                SERVER_ID,
+                packet_recv_tx_server.clone(),
+            ))
+            .expect("Cant add client to drone 1 neighbors");
+
+        // Create server
+        let mut server = Server::new(
+            SERVER_ID,
+            command_recv_rx_server,
+            packet_recv_rx_server,
+            event_send_tx_server,
+            ServerType::Chat,
+        );
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        command_recv_tx_server.send(ServerCommand::AddDrone(
+            DRONE_1_ID,
+            packet_recv_tx_1.clone(),
+        ));
+        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+
+        // Send register request
+        let USERNAME = "a".repeat(200);
+        let PASSWORD = "b".repeat(200);
+        let request = ChatRequest::Register(USERNAME.clone(), PASSWORD);
+        message_sender_tx.send((
+            SERVER_ID,
+            to_allocvec(&request).expect("Could not convert ChatRequest::Register(...) to bytes"),
+        ));
+
+        // Receive client list
+        let (id, data) = message_receiver_rx
+            .recv()
+            .expect("Client did not receive a ChatResponse");
+        match from_bytes::<ChatResponse>(&data) {
+            Ok(ChatResponse::ClientList(username, usernames)) => {
+                assert_eq!(username, USERNAME);
+                assert_eq!(usernames, vec![USERNAME.clone()]);
+            }
+            _ => panic!("ContentResponse is not a ClientList"),
+        }
+
+        // Crash client
+        thread::sleep(Duration::from_millis(1000));
+        command_recv_tx_client.send(ClientCommand::Crash);
+
         assert!(client_handle.join().is_ok());
     }
 }

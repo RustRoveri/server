@@ -1,9 +1,11 @@
+//! Implements the `ChatBehavior` struct for managing chat clients and handling requests.
+
 use crate::specialized_behavior::{AssembledResponse, ProcessError, SpecializedBehavior};
 use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rust_roveri_api::{
-    ChatRequest, ChatResponse, LoginError, LogoutError, MessageError, Password, RegisterError,
-    UserName,
+    ChatRequest, ChatResponse, ClientListError, LoginError, LogoutError, MessageError, Password,
+    RegisterError, UserName,
 };
 use std::collections::{hash_map::Entry, HashMap};
 use wg_2024::network::NodeId;
@@ -14,6 +16,10 @@ pub struct ChatBehavior {
     clients: HashMap<UserName, (Password, NodeId, Logged)>,
 }
 
+/// Handles chat client management and network request processing.
+///
+/// The `ChatBehavior` struct keeps track of registered clients, their authentication states,
+/// and their associated network identifiers.
 impl ChatBehavior {
     pub fn new() -> Self {
         Self {
@@ -21,6 +27,7 @@ impl ChatBehavior {
         }
     }
 
+    /// Retrieves a list of all registered usernames.
     fn get_client_list(&self) -> Vec<UserName> {
         self.clients
             .iter()
@@ -28,21 +35,43 @@ impl ChatBehavior {
             .collect()
     }
 
+    /// Registers a new client with the given username, password, and node ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - New client's username.
+    /// * `password` - The password associated with the client.
+    /// * `node_id` - The `NodeId` associated with the client connection.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the registration is successful.
+    /// - `Err(RegisterError::AlreadyRegistered)` if the username is already in use.
     fn register(
         &mut self,
         username: UserName,
         password: Password,
         node_id: NodeId,
-    ) -> Result<UserName, RegisterError> {
-        match self.clients.entry(username.clone()) {
+    ) -> Result<(), RegisterError> {
+        match self.clients.entry(username) {
             Entry::Vacant(entry) => {
                 entry.insert((password, node_id, true));
-                Ok(username)
+                Ok(())
             }
             Entry::Occupied(_) => Err(RegisterError::AlreadyRegistered),
         }
     }
 
+    /// Checks if a client is authenticated and associated with a specific node ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username of the client to check.
+    /// * `node_id` - The `NodeId` associated with the client's session.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the client is authenticated and their `NodeId` matches; otherwise, `false`.
     fn is_auth(&self, username: &UserName, node_id: NodeId) -> bool {
         match self.clients.get(username) {
             Some((_, id, logged)) => node_id == *id && *logged,
@@ -50,13 +79,20 @@ impl ChatBehavior {
         }
     }
 
-    fn is_logged(&self, username: &UserName) -> bool {
-        match self.clients.get(username) {
-            Some((_, _, logged)) => *logged,
-            None => false,
-        }
-    }
-
+    /// Verifies if the sender is authenticated and the recipient can receive a message.
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - The username of the message sender.
+    /// * `node_id` - The `NodeId` associated with the sender's session.
+    /// * `recipient` - The username of the message recipient.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok((NodeId, UserName))` with the recipient's `NodeId` and the sender's username if the
+    ///   message can be sent.
+    /// - `Err(MessageError)` if the sender is not authenticated, the recipient is not registered,
+    ///   or the recipient is not logged in.
     fn can_send_message(
         &mut self,
         sender: UserName,
@@ -81,6 +117,17 @@ impl ChatBehavior {
         }
     }
 
+    /// Signin a client if its credentials are valid.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username of the client.
+    /// * `password` - The password provided by the client.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the login is successful.
+    /// - `Err(LoginError)` if the client is already logged in, not registered, or the password is incorrect.
     pub fn login(&mut self, username: &UserName, password: &Password) -> Result<(), LoginError> {
         match self.clients.entry(username.clone()) {
             Entry::Occupied(mut entry) => {
@@ -98,6 +145,18 @@ impl ChatBehavior {
         }
     }
 
+    /// Signout a client if they are currently logged in.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username of the client.
+    /// * `node_id` - The `NodeId` associated with the client's session.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the logout is successful.
+    /// - `Err(LogoutError)` if the client is not logged in, the `NodeId` does not match,
+    ///   or the client is not registered.
     pub fn logout(&mut self, username: &UserName, node_id: NodeId) -> Result<(), LogoutError> {
         match self.clients.entry(username.clone()) {
             Entry::Occupied(mut entry) => {
@@ -145,6 +204,26 @@ impl SpecializedBehavior for ChatBehavior {
         }
     }
 
+    /// Processes a chat request and generates an appropriate response.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled` - The serialized chat request.
+    /// * `initiator_id` - The ID of the node that sent the request.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(AssembledResponse)` if the request is successfully processed.
+    /// - `Err(ProcessError)` if an error occurs during request processing.
+    ///
+    /// # Behavior
+    ///
+    /// This method supports the following types of requests:
+    /// - `ClientList`: Returns the list of connected clients.
+    /// - `Message`: Sends a message from one client to another.
+    /// - `Register`: Registers a new client with a username and password.
+    /// - `Login`: Authenticates a client and logs them in.
+    /// - `Logout`: Logs a client out of the system.
     fn process_assembled(
         &mut self,
         assembled: Vec<u8>,
@@ -155,7 +234,12 @@ impl SpecializedBehavior for ChatBehavior {
 
         match content_request {
             ChatRequest::ClientList(username) => {
-                let response = ChatResponse::ClientList(username, self.get_client_list());
+                let response = if self.is_auth(&username, initiator_id) {
+                    ChatResponse::ClientList(username, self.get_client_list());
+                } else {
+                    ChatResponse::ClientListFailure(username, ClientListError::NotLogged);
+                };
+
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
                     dest: initiator_id,

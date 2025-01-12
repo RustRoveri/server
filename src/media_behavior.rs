@@ -1,3 +1,5 @@
+//! Implements the `MediaBehavior` struct for managing media content requests.
+
 use crate::specialized_behavior::{
     AssembledResponse, ProcessError, SetPathError, SpecializedBehavior,
 };
@@ -7,6 +9,10 @@ use rust_roveri_api::{ContentName, ContentRequest, ContentResponse, ContentType}
 use std::{fs, path::PathBuf};
 use wg_2024::network::NodeId;
 
+/// Manages media-related requests, such as listing or retrieving media files.
+///
+/// The `MediaBehavior` struct implements the `SpecializedBehavior` trait to handle
+/// requests for media content stored in a specified directory.
 pub struct MediaBehavior {
     path: PathBuf,
 }
@@ -20,6 +26,16 @@ impl MediaBehavior {
 }
 
 impl SpecializedBehavior for MediaBehavior {
+    /// Sets the directory path for media content.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the directory containing media files.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the directory exists and is accessible.
+    /// - `Err(SetPathError::FileSystem)` if there is an error accessing the directory.
     fn set_path(&mut self, path: PathBuf) -> Result<(), SetPathError> {
         let _ = fs::read_dir(&path).map_err(SetPathError::FileSystem)?;
 
@@ -55,6 +71,31 @@ impl SpecializedBehavior for MediaBehavior {
         }
     }
 
+    /// Processes a request and generates an appropriate response.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled` - The serialized request data.
+    /// * `initiator_id` - The ID of the node that sent the request.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(AssembledResponse)` if the request is successfully processed.
+    /// - `Err(ProcessError)` if an error occurs during request processing.
+    ///
+    /// # Behavior
+    ///
+    /// This method supports two types of requests:
+    ///
+    /// 1. **List**:
+    ///    - Lists all media files in the configured directory.
+    ///    - Returns a `ContentResponse::List` containing the file names.
+    /// 2. **Content**:
+    ///    - Retrieves a specific media file by name.
+    ///    - Returns a `ContentResponse::Content` containing the file's data.
+    ///
+    /// If the requested file is not found or is not a valid file, a `ContentResponse::ContentNotFound`
+    /// is returned.
     fn process_assembled(
         &mut self,
         assembled: Vec<u8>,

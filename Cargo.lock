@@ -59,7 +59,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#72342a9188f88203080983431f565397878d0713"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#4031e50844de69bad471536b07dfa8d34e8cd0b0"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -166,9 +166,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.24"
+version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d6ea2a48c204030ee31a7d7fc72c93294c92fe87ecb1789881c9543516e1a0d"
+checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
 name = "postcard"
@@ -267,7 +267,7 @@ dependencies = [
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#e7a5ba3ad89e424e703022012aa0700943a4a211"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#b6f08b6cf4c5c5cec35c9fae001528202f9f8eea"
 dependencies = [
  "crossbeam-channel",
  "serde",

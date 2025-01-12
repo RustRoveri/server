@@ -1,3 +1,5 @@
+//! Implements the `Server` struct for managing server's operations.
+
 use crate::assembler::{AssemblerStatus, InsertFragmentError, RetrieveError};
 use crate::assemblers_manager::AssemblersManager;
 use crate::chat_behavior::ChatBehavior;
@@ -63,6 +65,7 @@ impl Server {
         }
     }
 
+    /// Runs the main server loop.
     pub fn run(&mut self) {
         while !self.should_terminate {
             select_biased!(
@@ -85,6 +88,7 @@ impl Server {
         }
     }
 
+    /// Handles a received command from the controller.
     fn handle_command(&mut self, command: ServerCommand) {
         match command {
             ServerCommand::Crash => self.should_terminate = true,
@@ -94,6 +98,7 @@ impl Server {
         }
     }
 
+    /// Adds a drone to the server's topology and packet senders.
     fn add_drone(&mut self, drone_id: NodeId, sender: Sender<Packet>) {
         self.topology
             .insert_edge((self.id, NodeType::Server), (drone_id, NodeType::Drone));
@@ -104,10 +109,12 @@ impl Server {
         }
     }
 
+    /// Removes a drone from the server's topology.
     fn remove_drone(&mut self, drone_id: NodeId) {
         self.topology.remove_edge(self.id, drone_id);
     }
 
+    /// Set the content server path if its possible, otherwise send an error to the controller
     fn set_path(&mut self, path: PathBuf) {
         match self.specialized.set_path(path) {
             Ok(()) => info!("{} Updated path", self.get_prefix()),
@@ -128,6 +135,7 @@ impl Server {
         }
     }
 
+    /// Handles a packet based on its type.
     fn handle_packet(&mut self, packet: Packet) {
         match packet.pack_type {
             PacketType::Ack(ack) => self.handle_ack(ack, packet.session_id),
@@ -142,11 +150,18 @@ impl Server {
         }
     }
 
+    /// Handles an acknowledgment packet.
+    ///
+    /// Removes the corresponding fragment from the fragment manager's cache.
     fn handle_ack(&mut self, ack: Ack, session_id: SessionId) {
         self.fragment_manager
             .remove_from_cache((session_id, ack.fragment_index));
     }
 
+    /// Handles a negative acknowledgment packet.
+    ///
+    /// Based on the NACK type, it either reinserts the fragment into the fragment manager's buffer
+    /// or initiates network discovery.
     fn handle_nack(&mut self, nack: Nack, session_id: SessionId) {
         match nack.nack_type {
             NackType::Dropped => {
@@ -173,6 +188,10 @@ impl Server {
         }
     }
 
+    /// Handles a fragment packet.
+    ///
+    /// Attempts to insert the fragment into the assembler manager. If the message assembly is
+    /// complete, it retrieves the assembled data and processes it.
     fn handle_fragment(
         &mut self,
         fragment: Fragment,
@@ -221,16 +240,25 @@ impl Server {
         }
     }
 
+    /// Handles an assembled message.
+    ///
+    /// Converts the assembled response into fragments and inserts them into the fragment manager.
     fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) {
         let response = self.specialized.handle_assembled(assembled, initiator_id);
         let fragments = self.fragmenter.to_fragment_vec(response);
         self.fragment_manager.insert_bulk(fragments);
     }
 
+    /// Handles a flood request packet.
+    ///
+    /// Starts the flood response process.
     fn handle_flood_request(&mut self, flood_req: FloodRequest, session_id: SessionId) {
         self.begin_flood_response(flood_req, session_id);
     }
 
+    /// Begins the flood response process.
+    ///
+    /// Constructs a flood response packet and sends it back along the discovered path.
     fn begin_flood_response(&self, req: FloodRequest, session_id: u64) {
         let flood_res = FloodResponse {
             flood_id: req.flood_id,
@@ -258,6 +286,9 @@ impl Server {
         self.send_packet(flood_res_packet);
     }
 
+    /// Handles a flood response packet.
+    ///
+    /// Updates the network topology based on the path trace provided in the flood response.
     fn handle_flood_response(&mut self, flood_res: FloodResponse) {
         for (node1, node2) in flood_res
             .path_trace
@@ -268,6 +299,9 @@ impl Server {
         }
     }
 
+    /// Starts the network discovery process.
+    ///
+    /// Sends flood request packets to all neighbors to explore the network topology.
     fn start_network_discovery(&mut self) {
         self.topology.reset();
 
@@ -291,6 +325,15 @@ impl Server {
         }
     }
 
+    /// Sends a fragment to its destination using the shortest path in the topology.
+    ///
+    /// # Behavior
+    ///
+    /// - If a path to the destination is found, a packet is created with the appropriate routing header.
+    /// - If the topology is still updating or no path is found, the fragment is reinserted into the
+    ///   fragment manager's buffer.
+    /// - If the topology is not updating but no path is found, the network discovery process is started.
+    /// - If the fragment is being sent to the server itself just ignore it and log an error.
     fn send_fragment(&mut self, to_be_sent_fragment: ToBeSentFragment) {
         let path = self.topology.bfs(self.id, to_be_sent_fragment.dest);
 
@@ -309,7 +352,7 @@ impl Server {
                 self.send_packet(packet);
             }
             Err(RoutingError::SourceIsDest) => {
-                panic!("Cant send a packet to myself")
+                error!("{} Cant send a packet to myself", self.get_prefix())
             }
             Err(RoutingError::NoPathFound) => {
                 //if the topology is still updating its ok to not find the path
@@ -325,12 +368,14 @@ impl Server {
         }
     }
 
+    /// Retrieves the sender for the next hop in the packet's routing path.
     fn get_sender(&self, packet: &Packet) -> Option<&Sender<Packet>> {
         let next_index = packet.routing_header.hop_index;
         let next_id = packet.routing_header.hops.get(next_index)?;
         self.packet_send.get(next_id)
     }
 
+    /// Sends a packet to the next hop in its routing path.
     fn send_packet(&self, packet: Packet) {
         match self.get_sender(&packet) {
             Some(sender) => {
@@ -344,6 +389,7 @@ impl Server {
         }
     }
 
+    /// Sends a packet to a specific sender.
     fn send_packet_to_sender(&self, packet: Packet, sender: &Sender<Packet>) {
         if sender.send(packet.clone()).is_ok() {
             self.send_server_event(ServerEvent::PacketSent(packet));
@@ -354,6 +400,7 @@ impl Server {
         }
     }
 
+    /// Sends an event to the server controller.
     fn send_server_event(&self, server_event: ServerEvent) {
         if self.controller_send.send(server_event).is_err() {
             let message = format!("{} The controller is disconnected", self.get_prefix());
@@ -362,6 +409,7 @@ impl Server {
         }
     }
 
+    /// Retrieves the server's logging prefix.
     fn get_prefix(&self) -> String {
         format!("[SERVER {}]", self.id)
     }

@@ -1,3 +1,5 @@
+//! Implements the `Topology` struct for managing and analyzing network connectivity.
+
 use bitvec::prelude::*;
 use std::{
     collections::VecDeque,
@@ -8,8 +10,14 @@ use std::{
 use wg_2024::{network::NodeId, packet::NodeType};
 
 const NETWORK_SIZE: usize = 256;
+
+/// Estimated duration after which the topology is considered fully updated.
 const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
 
+/// Represents the network topology as an undirected graph.
+///
+/// The `Topology` struct tracks connections between nodes and their types.
+/// It uses a bit matrix (`BitArray`) to represent edges between nodes.
 pub struct Topology {
     graph: [BitArray<[u8; 32]>; NETWORK_SIZE],
     types: [NodeType; NETWORK_SIZE],
@@ -31,6 +39,7 @@ impl Topology {
         }
     }
 
+    /// Inserts an edge between two nodes in the topology.
     pub fn insert_edge(&mut self, node1: (NodeId, NodeType), node2: (NodeId, NodeType)) {
         let node1_id = node1.0 as usize;
         let node2_id = node2.0 as usize;
@@ -42,6 +51,7 @@ impl Topology {
         self.types[node2_id] = node2.1;
     }
 
+    /// Removes an edge between two nodes in the topology.
     pub fn remove_edge(&mut self, node1_id: NodeId, node2_id: NodeId) {
         let n1_id = node1_id as usize;
         let n2_id = node2_id as usize;
@@ -50,6 +60,22 @@ impl Topology {
         self.graph[n2_id].set(n1_id, false);
     }
 
+    /// Finds the shortest path between two nodes using BFS.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The ID of the source node.
+    /// * `dest` - The ID of the destination node.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Vec<NodeId>)` if a path is found.
+    /// - `Err(RoutingError::NoPathFound)` if no path exists.
+    /// - `Err(RoutingError::SourceIsDest)` if the source is the same as the destination.
+    ///
+    /// # Notes
+    ///
+    /// Routing through a node of type `NodeType::Drone` is not allowed.
     pub fn bfs(&self, source: NodeId, dest: NodeId) -> Result<Vec<NodeId>, RoutingError> {
         let source_id = source as usize;
         let dest_id = dest as usize;
@@ -70,7 +96,6 @@ impl Topology {
                 if !visited[neighbor] {
                     visited[neighbor] = true;
                     parent[neighbor] = Some(current);
-                    queue.push_back(neighbor);
 
                     if neighbor == dest_id {
                         let mut path = vec![dest];
@@ -83,6 +108,10 @@ impl Topology {
 
                         path.reverse();
                         return Ok(path);
+
+                    //Routing with a node different from drone in the middle is illegal
+                    } else if self.types[neighbor] == NodeType::Drone {
+                        queue.push_back(neighbor);
                     }
                 }
             }
@@ -91,6 +120,7 @@ impl Topology {
         Err(RoutingError::NoPathFound)
     }
 
+    /// Resets the topology by clearing all edges and resetting node types.
     pub fn reset(&mut self) {
         self.graph = [BitArray::new([0; 32]); NETWORK_SIZE];
         self.types = [NodeType::Drone; NETWORK_SIZE];
@@ -98,6 +128,11 @@ impl Topology {
         self.last_reset = Instant::now()
     }
 
+    /// Checks if the topology is currently updating.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the last reset occurred within the estimated update time; otherwise, `false`.
     pub fn is_updating(&self) -> bool {
         self.last_reset.elapsed() < ESTIMATED_UPDATE_TIME
     }

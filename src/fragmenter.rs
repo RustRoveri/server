@@ -1,3 +1,5 @@
+//! Provides functionality to fragment large messages into smaller fragment for network transmission.
+
 use crate::{fragment_manager::ToBeSentFragment, specialized_behavior::AssembledResponse};
 use rust_roveri_api::SessionId;
 use wg_2024::packet::{Fragment, FRAGMENT_DSIZE};
@@ -6,11 +8,30 @@ pub struct Fragmenter {
     session_id: SessionId,
 }
 
+/// The `Fragmenter` takes an `AssembledResponse`, splits its data into smaller chunks and attach
+/// the session id that is incremented after each fragmentation
 impl Fragmenter {
     pub fn new() -> Self {
         Self { session_id: 1 }
     }
 
+    /// Splits an `AssembledResponse` into a vector of fragments.
+    ///
+    /// This method divides the data in the `AssembledResponse` into chunks of size `FRAGMENT_DSIZE`.
+    /// Each chunk is encapsulated in a `Fragment`, which is then wrapped in a `ToBeSentFragment`.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled_response` - The response data and destination to be fragmented.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<ToBeSentFragment>` containing all fragments with data for transmission.
+    ///
+    /// # Behavior
+    ///
+    /// - If the data in the `AssembledResponse` is empty, no fragments are created.
+    /// - The session ID is incremented after fragmenting the data.
     pub fn to_fragment_vec(
         &mut self,
         assembled_response: AssembledResponse,

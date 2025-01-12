@@ -1,3 +1,5 @@
+//! Defines traits and structures for processing and handling specialized server behaviors.
+
 use postcard;
 use std::io;
 use std::path::PathBuf;
@@ -25,7 +27,31 @@ pub trait SpecializedBehavior: Send {
         Err(SetPathError::WrongServerType)
     }
 
+    /// Handles incoming assembled data and use `process_assembled` to process requests.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled` - The assembled message (request).
+    /// * `initiator_id` - The id of the message sender.
+    ///
+    /// # Returns
+    ///
+    /// - `AssembledResponse` the assembled message (response).
     fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) -> AssembledResponse;
+
+
+    /// Processes requests based on the behavior and generates appropriate responses.
+    /// Errors are propagated to the `handle_assembled` method.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled` - The assembled message (request).
+    /// * `initiator_id` - The id of the message sender.
+    ///
+    /// # Returns
+    ///
+    /// - `AssembledResponse` the assembled message (response).
+    /// - `ProcessError` the error, if it occurs.
     fn process_assembled(
         &mut self,
         assembled: Vec<u8>,

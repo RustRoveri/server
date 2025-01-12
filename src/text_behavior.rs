@@ -1,3 +1,5 @@
+//! Implements the `TextBehavior` struct for managing text content requests.
+
 use crate::specialized_behavior::{
     AssembledResponse, ProcessError, SetPathError, SpecializedBehavior,
 };
@@ -7,6 +9,10 @@ use rust_roveri_api::{ContentName, ContentRequest, ContentResponse, ContentType}
 use std::{fs, path::PathBuf};
 use wg_2024::network::NodeId;
 
+/// Manages text-related requests, such as listing or retrieving text files.
+///
+/// The `TextBehavior` struct implements the `SpecializedBehavior` trait to handle
+/// requests for text content stored in a specified directory.
 pub struct TextBehavior {
     path: PathBuf,
 }
@@ -20,6 +26,16 @@ impl TextBehavior {
 }
 
 impl SpecializedBehavior for TextBehavior {
+    /// Sets the directory path for text content.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the directory containing text files.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the directory exists and is accessible.
+    /// - `Err(SetPathError::FileSystem)` if there is an error accessing the directory.
     fn set_path(&mut self, path: PathBuf) -> Result<(), SetPathError> {
         let _ = fs::read_dir(&path).map_err(SetPathError::FileSystem)?;
 
@@ -55,6 +71,31 @@ impl SpecializedBehavior for TextBehavior {
         }
     }
 
+    /// Processes a request and generates an appropriate response.
+    ///
+    /// # Arguments
+    ///
+    /// * `assembled` - The serialized request data.
+    /// * `initiator_id` - The ID of the node that sent the request.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(AssembledResponse)` if the request is successfully processed.
+    /// - `Err(ProcessError)` if an error occurs during request processing.
+    ///
+    /// # Behavior
+    ///
+    /// This method supports two types of requests:
+    ///
+    /// 1. **List**:
+    ///    - Lists all text files in the configured directory.
+    ///    - Returns a `ContentResponse::List` containing the file names.
+    /// 2. **Content**:
+    ///    - Retrieves a specific text file by name.
+    ///    - Returns a `ContentResponse::Content` containing the file's data.
+    ///
+    /// If the requested file is not found or is not a valid file, a `ContentResponse::ContentNotFound`
+    /// is returned.
     fn process_assembled(
         &mut self,
         assembled: Vec<u8>,

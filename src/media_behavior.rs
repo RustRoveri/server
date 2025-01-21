@@ -5,7 +5,9 @@ use crate::specialized_behavior::{
 };
 use log::error;
 use postcard::{from_bytes, to_allocvec};
-use rust_roveri_api::{ContentName, ContentRequest, ContentResponse, ContentType};
+use rust_roveri_api::{
+    ContentName, ContentRequest, ContentResponse, ContentType, Request, Response,
+};
 use std::{fs, path::PathBuf};
 use wg_2024::network::NodeId;
 
@@ -48,11 +50,13 @@ impl SpecializedBehavior for MediaBehavior {
             Ok(response) => return response,
             Err(err) => {
                 let error_message = match err {
+                    ProcessError::UnexpectedRequest => format!("Unexpected request"),
                     ProcessError::Deserialize(_) => format!("Deserialization error"),
                     ProcessError::Serialize(_) => format!("Serialization error"),
                     ProcessError::FileSystem(_) => format!("Filesystem error"),
                 };
-                let error_response = ContentResponse::InternalServerError(error_message);
+                let error_response =
+                    Response::Content(ContentResponse::InternalServerError(error_message));
 
                 match to_allocvec(&error_response) {
                     Ok(bytes) => AssembledResponse {
@@ -101,8 +105,12 @@ impl SpecializedBehavior for MediaBehavior {
         assembled: Vec<u8>,
         initiator_id: NodeId,
     ) -> Result<AssembledResponse, ProcessError> {
-        let content_request =
-            from_bytes::<ContentRequest>(&assembled).map_err(ProcessError::Deserialize)?;
+        let request = from_bytes::<Request>(&assembled).map_err(ProcessError::Deserialize)?;
+
+        let content_request = match request {
+            Request::Content(req) => req,
+            _ => return Err(ProcessError::UnexpectedRequest),
+        };
 
         match content_request {
             ContentRequest::List => {
@@ -122,6 +130,7 @@ impl SpecializedBehavior for MediaBehavior {
                     .collect::<Vec<ContentName>>();
 
                 let response = ContentResponse::List(content_names);
+                let response = Response::Content(response);
 
                 Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(|err| ProcessError::Serialize(err))?,
@@ -143,6 +152,7 @@ impl SpecializedBehavior for MediaBehavior {
                 let content_data = fs::read(&content_path).map_err(ProcessError::FileSystem)?;
                 let response =
                     ContentResponse::Content(content_name, ContentType::Image, content_data);
+                let response = Response::Content(response);
 
                 Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,

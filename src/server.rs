@@ -419,17 +419,18 @@ impl Server {
 mod tests {
     use crate::Server;
     use client::client::Client;
+    use core::panic;
     use crossbeam_channel::unbounded;
     use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::ServerCommand;
-    use rust_roveri_api::ServerEvent;
     use rust_roveri_api::ServerType;
     use rust_roveri_api::{ChatRequest, ContentResponse};
     use rust_roveri_api::{ChatResponse, ContentType};
     use rust_roveri_api::{ClientCommand, ContentRequest};
+    use rust_roveri_api::{ClientEvent, ServerCommand};
     use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
+    use rust_roveri_api::{Response, ServerEvent};
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -502,6 +503,7 @@ mod tests {
         const CLIENT_ID: NodeId = 70;
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         const DRONE_1_ID: NodeId = 71;
@@ -520,6 +522,7 @@ mod tests {
             CLIENT_ID,
             packet_recv_rx_client,
             command_recv_rx_client,
+            event_send_tx_client,
             message_sender_rx,
             message_receiver_tx,
         );
@@ -613,6 +616,7 @@ mod tests {
         const CLIENT_ID: NodeId = 70;
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         const DRONE_1_ID: NodeId = 71;
@@ -631,6 +635,7 @@ mod tests {
             CLIENT_ID,
             packet_recv_rx_client,
             command_recv_rx_client,
+            event_send_tx_client,
             message_sender_rx,
             message_receiver_tx,
         );
@@ -692,13 +697,19 @@ mod tests {
         // Receive client list
         let (id, data) = message_receiver_rx
             .recv()
-            .expect("Client did not receive a ChatResponse");
-        match from_bytes::<ChatResponse>(&data) {
-            Ok(ChatResponse::ClientList(username, usernames)) => {
-                assert_eq!(username, USERNAME);
-                assert_eq!(usernames, vec![USERNAME.clone()]);
+            .expect("Client did not receive a Response");
+
+        match from_bytes::<Response>(&data) {
+            Ok(Response::Chat(response)) => {
+                match response {
+                    ChatResponse::ClientList(username, usernames) => {
+                        assert_eq!(username, USERNAME);
+                        assert_eq!(usernames, vec![USERNAME.clone()]);
+                    }
+                    _ => panic!("ChatResponse is not ClientList, {:?}", response),
+                };
             }
-            _ => panic!("ContentResponse is not a ClientList"),
+            _ => panic!("data received is not a Response"),
         }
 
         // Crash client
@@ -707,4 +718,197 @@ mod tests {
 
         assert!(client_handle.join().is_ok());
     }
+
+    /*
+    #[test]
+    fn test_poisoned() {
+        // Topology:
+        //   ----- d1 -----
+        //  /              \
+        // c                s
+        //  \              /
+        //   -- d2 -- d3 --
+
+        // Set parameters
+        const CLIENT_ID: NodeId = 70;
+        const DRONE_1_ID: NodeId = 71;
+        const DRONE_2_ID: NodeId = 72;
+        const DRONE_3_ID: NodeId = 73;
+        const SERVER_ID: NodeId = 74;
+        const PDR_1: f32 = 1.0;
+        const PDR_2: f32 = 0.9;
+        const PDR_3: f32 = 0.9;
+
+        // Create browser
+        let (message_sender_tx, message_sender_rx) = unbounded();
+        let (message_receiver_tx, message_receiver_rx) = unbounded();
+
+        // Create client channels
+        let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
+        let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+
+        // Create drone 1 channels
+        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+
+        // Create drone 2 channels
+        let (controller_send_tx_2, _controller_send_rx_2) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_2, controller_recv_rx_2) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_2, packet_recv_rx_2) = unbounded::<Packet>();
+
+        // Create drone 3 channels
+        let (controller_send_tx_3, _controller_send_rx_3) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_3, controller_recv_rx_3) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_3, packet_recv_rx_3) = unbounded::<Packet>();
+
+        // Create server channels
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
+        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+
+        // Create client
+        let mut client = Client::new(
+            CLIENT_ID,
+            packet_recv_rx_client,
+            command_recv_rx_client,
+            event_send_tx_client,
+            message_sender_rx,
+            message_receiver_tx,
+        );
+        client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
+        client.add_drone(DRONE_2_ID, packet_recv_tx_2.clone());
+        let client_handle = thread::spawn(move || {
+            client.run();
+        });
+
+        // Create drone 1
+        let packet_send_1 = HashMap::new();
+        let mut drone_1 = RustRoveri::new(
+            DRONE_1_ID,
+            controller_send_tx_1,
+            controller_recv_rx_1,
+            packet_recv_rx_1.clone(),
+            packet_send_1,
+            PDR_1,
+        );
+        let handle_1 = thread::spawn(move || drone_1.run());
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                CLIENT_ID,
+                packet_recv_tx_client.clone(),
+            ))
+            .expect("Cannot add client to drone 1 neighbors");
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                SERVER_ID,
+                packet_recv_tx_server.clone(),
+            ))
+            .expect("Cannot add server to drone 1 neighbors");
+
+        // Create drone 2
+        let packet_send_2 = HashMap::new();
+        let mut drone_2 = RustRoveri::new(
+            DRONE_2_ID,
+            controller_send_tx_2,
+            controller_recv_rx_2,
+            packet_recv_rx_2.clone(),
+            packet_send_2,
+            PDR_2,
+        );
+        let handle_2 = thread::spawn(move || drone_2.run());
+        controller_recv_tx_2
+            .send(DroneCommand::AddSender(
+                CLIENT_ID,
+                packet_recv_tx_client.clone(),
+            ))
+            .expect("Cannot add client to drone 2 neighbors");
+        controller_recv_tx_2
+            .send(DroneCommand::AddSender(
+                DRONE_3_ID,
+                packet_recv_tx_3.clone(),
+            ))
+            .expect("Cannot add drone 3 to drone 2 neighbors");
+
+        // Create drone 3
+        let packet_send_3 = HashMap::new();
+        let mut drone_3 = RustRoveri::new(
+            DRONE_3_ID,
+            controller_send_tx_3,
+            controller_recv_rx_3,
+            packet_recv_rx_3.clone(),
+            packet_send_3,
+            PDR_3,
+        );
+        let handle_3 = thread::spawn(move || drone_3.run());
+        controller_recv_tx_3
+            .send(DroneCommand::AddSender(
+                DRONE_2_ID,
+                packet_recv_tx_2.clone(),
+            ))
+            .expect("Cannot add drone 2 to drone 3 neighbors");
+        controller_recv_tx_3
+            .send(DroneCommand::AddSender(
+                SERVER_ID,
+                packet_recv_tx_server.clone(),
+            ))
+            .expect("Cannot add server to drone 3 neighbors");
+
+        // Create server
+        let mut server = Server::new(
+            SERVER_ID,
+            command_recv_rx_server,
+            packet_recv_rx_server,
+            event_send_tx_server,
+            ServerType::ContentText,
+        );
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        command_recv_tx_server
+            .send(ServerCommand::AddDrone(
+                DRONE_1_ID,
+                packet_recv_tx_1.clone(),
+            ))
+            .expect("Cannot add drone 1 to server neighbors");
+        command_recv_tx_server
+            .send(ServerCommand::AddDrone(
+                DRONE_3_ID,
+                packet_recv_tx_3.clone(),
+            ))
+            .expect("Cannot add drone 3 to server neighbors");
+        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+
+        // Send list request
+        let request = ContentRequest::List;
+        message_sender_tx.send((
+            SERVER_ID,
+            to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
+        ));
+
+        // Receive list response
+        let (id, data) = message_receiver_rx
+            .recv()
+            .expect("Client did not receive a ContentResponse");
+        match from_bytes::<ContentResponse>(&data) {
+            Ok(ContentResponse::List(names)) => {
+                assert_eq!(
+                    names,
+                    vec![
+                        "src".to_string(),
+                        "Cargo.toml".to_string(),
+                        "README.md".to_string()
+                    ]
+                );
+            }
+            _ => panic!("ContentResponse is not a List"),
+        }
+
+        // Crash client
+        thread::sleep(Duration::from_millis(100));
+        command_recv_tx_client.send(ClientCommand::Crash);
+
+        assert!(client_handle.join().is_ok());
+    }*/
 }

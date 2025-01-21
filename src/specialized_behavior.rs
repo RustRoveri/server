@@ -1,6 +1,7 @@
 //! Defines traits and structures for processing and handling specialized server behaviors.
 
 use postcard;
+use rust_roveri_api::Request;
 use std::io;
 use std::path::PathBuf;
 use wg_2024::network::NodeId;
@@ -17,6 +18,7 @@ pub enum SetPathError {
 }
 
 pub enum ProcessError {
+    UnexpectedRequest,
     Deserialize(postcard::Error),
     Serialize(postcard::Error),
     FileSystem(io::Error),
@@ -38,7 +40,6 @@ pub trait SpecializedBehavior: Send {
     ///
     /// - `AssembledResponse` the assembled message (response).
     fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) -> AssembledResponse;
-
 
     /// Processes requests based on the behavior and generates appropriate responses.
     /// Errors are propagated to the `handle_assembled` method.

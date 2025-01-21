@@ -5,7 +5,7 @@ use log::error;
 use postcard::{from_bytes, to_allocvec};
 use rust_roveri_api::{
     ChatRequest, ChatResponse, ClientListError, LoginError, LogoutError, MessageError, Password,
-    RegisterError, UserName,
+    RegisterError, Request, Response, UserName,
 };
 use std::collections::{hash_map::Entry, HashMap};
 use wg_2024::network::NodeId;
@@ -181,11 +181,13 @@ impl SpecializedBehavior for ChatBehavior {
             Ok(response) => return response,
             Err(err) => {
                 let error_message = match err {
+                    ProcessError::UnexpectedRequest => format!("Unexpected request"),
                     ProcessError::Deserialize(_) => format!("Deserialization error"),
                     ProcessError::Serialize(_) => format!("Serialization error"),
                     ProcessError::FileSystem(_) => format!("Filesystem error"),
                 };
-                let error_response = ChatResponse::InternalServerError(error_message);
+                let error_response =
+                    Response::Chat(ChatResponse::InternalServerError(error_message));
 
                 match to_allocvec(&error_response) {
                     Ok(bytes) => AssembledResponse {
@@ -229,17 +231,22 @@ impl SpecializedBehavior for ChatBehavior {
         assembled: Vec<u8>,
         initiator_id: NodeId,
     ) -> Result<AssembledResponse, ProcessError> {
-        let content_request =
-            from_bytes::<ChatRequest>(&assembled).map_err(ProcessError::Deserialize)?;
+        let request = from_bytes::<Request>(&assembled).map_err(ProcessError::Deserialize)?;
+
+        let content_request = match request {
+            Request::Chat(req) => req,
+            _ => return Err(ProcessError::UnexpectedRequest),
+        };
 
         match content_request {
             ChatRequest::ClientList(username) => {
                 let response = if self.is_auth(&username, initiator_id) {
-                    ChatResponse::ClientList(username, self.get_client_list());
+                    ChatResponse::ClientList(username, self.get_client_list())
                 } else {
-                    ChatResponse::ClientListFailure(username, ClientListError::NotLogged);
+                    ChatResponse::ClientListFailure(username, ClientListError::NotLogged)
                 };
 
+                let response = Response::Chat(response);
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
                     dest: initiator_id,
@@ -254,6 +261,7 @@ impl SpecializedBehavior for ChatBehavior {
                     Err(err) => (ChatResponse::MessageFailure(err), initiator_id),
                 };
 
+                let response = Response::Chat(response);
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
                     dest,
@@ -265,6 +273,7 @@ impl SpecializedBehavior for ChatBehavior {
                     Err(err) => ChatResponse::RegisterFailure(username, err),
                 };
 
+                let response = Response::Chat(response);
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
                     dest: initiator_id,
@@ -276,6 +285,7 @@ impl SpecializedBehavior for ChatBehavior {
                     Err(err) => ChatResponse::LoginFailure(username, err),
                 };
 
+                let response = Response::Chat(response);
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
                     dest: initiator_id,
@@ -286,6 +296,8 @@ impl SpecializedBehavior for ChatBehavior {
                     Ok(()) => ChatResponse::LogoutSuccess(username),
                     Err(err) => ChatResponse::LogoutFailure(username, err),
                 };
+
+                let response = Response::Chat(response);
 
                 return Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(ProcessError::Serialize)?,

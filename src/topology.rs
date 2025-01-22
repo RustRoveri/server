@@ -2,7 +2,8 @@
 
 use bitvec::prelude::*;
 use std::{
-    collections::VecDeque,
+    cmp::Ordering,
+    collections::{BinaryHeap, VecDeque},
     fmt::Display,
     time::{Duration, Instant},
     usize,
@@ -14,6 +15,34 @@ const NETWORK_SIZE: usize = 256;
 /// Estimated duration after which the topology is considered fully updated.
 const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
 
+struct Rate {
+    pub success: f64,
+    pub failure: f64,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+struct State {
+    pdr: f64,
+    position: usize,
+}
+
+impl Eq for State {}
+
+impl Ord for State {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .pdr
+            .total_cmp(&self.pdr)
+            .then_with(|| self.position.cmp(&other.position))
+    }
+}
+
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 /// Represents the network topology as an undirected graph.
 ///
 /// The `Topology` struct tracks connections between nodes and their types.
@@ -21,6 +50,7 @@ const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
 pub struct Topology {
     graph: [BitArray<[u8; 32]>; NETWORK_SIZE],
     types: [NodeType; NETWORK_SIZE],
+    observed_trend: [Rate; NETWORK_SIZE],
     last_reset: Instant,
 }
 
@@ -35,6 +65,12 @@ impl Topology {
         Self {
             graph: [BitArray::new([0; 32]); NETWORK_SIZE],
             types: [NodeType::Drone; NETWORK_SIZE],
+            observed_trend: [const {
+                Rate {
+                    success: 0.0,
+                    failure: 0.0,
+                }
+            }; NETWORK_SIZE],
             last_reset: Instant::now() - ESTIMATED_UPDATE_TIME,
         }
     }
@@ -120,10 +156,69 @@ impl Topology {
         Err(RoutingError::NoPathFound)
     }
 
+    pub fn dijkstra(&self, source: NodeId, dest: NodeId) -> Result<Vec<NodeId>, RoutingError> {
+        let source_id = source as usize;
+        let dest_id = dest as usize;
+
+        if source == dest {
+            return Err(RoutingError::SourceIsDest);
+        }
+
+        let mut dist: Vec<f64> = (0..NETWORK_SIZE).map(|_| f64::INFINITY).collect();
+        let mut prev: Vec<Option<usize>> = vec![None; NETWORK_SIZE];
+        let mut heap = BinaryHeap::new();
+
+        dist[source_id] = 0.0;
+        heap.push(State {
+            pdr: 0.0,
+            position: source_id,
+        });
+
+        while let Some(State { pdr, position }) = heap.pop() {
+            if position == dest_id {
+                let mut path = Vec::new();
+                let mut current = Some(dest_id);
+
+                while let Some(node) = current {
+                    path.push(node as NodeId);
+                    current = prev[node];
+                }
+
+                path.reverse();
+                return Ok(path);
+            }
+
+            if pdr > dist[position] {
+                continue;
+            }
+
+            // For each node we can reach, see if we can find a way with
+            // a lower cost going through this node
+            for neighbor in self.graph[position].iter_ones() {
+                if neighbor != dest_id && self.types[neighbor] != NodeType::Drone {
+                    continue;
+                }
+
+                let next_pdr = pdr + (1.0 - pdr) * self.get_observed_pdr(neighbor);
+                if next_pdr < dist[neighbor] {
+                    dist[neighbor] = next_pdr;
+                    prev[neighbor] = Some(position);
+                    heap.push(State {
+                        pdr: next_pdr,
+                        position: neighbor,
+                    });
+                }
+            }
+        }
+
+        Err(RoutingError::NoPathFound)
+    }
+
     /// Resets the topology by clearing all edges and resetting node types.
     pub fn reset(&mut self) {
         self.graph = [BitArray::new([0; 32]); NETWORK_SIZE];
         self.types = [NodeType::Drone; NETWORK_SIZE];
+        //todo!("UPDATE THE TREND?");
 
         self.last_reset = Instant::now()
     }
@@ -136,6 +231,23 @@ impl Topology {
     pub fn is_updating(&self) -> bool {
         self.last_reset.elapsed() < ESTIMATED_UPDATE_TIME
     }
+
+    pub fn observe_success(&mut self, node: NodeId) {
+        self.observed_trend[node as usize].success += 1.0;
+    }
+
+    pub fn observe_failure(&mut self, node: NodeId) {
+        self.observed_trend[node as usize].failure += 1.0;
+    }
+
+    fn get_observed_pdr(&self, node_id: usize) -> f64 {
+        let trend = &self.observed_trend[node_id];
+        if trend.success + trend.failure > 0.0 {
+            trend.failure / (trend.success + trend.failure)
+        } else {
+            0.0
+        }
+    }
 }
 
 impl Display for Topology {
@@ -144,7 +256,12 @@ impl Display for Topology {
 
         for (i, node) in self.graph.iter().enumerate() {
             if node.count_ones() > 0 {
-                res.push_str(&format!("Node {}: ", i));
+                let observed_pdr = self.get_observed_pdr(i);
+
+                res.push_str(&format!(
+                    "Node {} [OBSERVED DROP RATE: {}] : ",
+                    i, observed_pdr
+                ));
                 let connections: Vec<usize> = node.iter_ones().collect();
                 res.push_str(&format!("connected to {:?} ", connections));
             }
@@ -155,5 +272,90 @@ impl Display for Topology {
         }
 
         write!(f, "{}", res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wg_2024::packet::NodeType;
+
+    #[test]
+    fn test_topology_initialization() {
+        let topo = Topology::new();
+        assert_eq!(topo.graph.len(), NETWORK_SIZE);
+        assert_eq!(topo.types.len(), NETWORK_SIZE);
+    }
+
+    #[test]
+    fn test_insert_and_remove_edge() {
+        let mut topo = Topology::new();
+        topo.insert_edge((0, NodeType::Drone), (1, NodeType::Client));
+        assert!(topo.graph[0].get(1).unwrap());
+        assert!(topo.graph[1].get(0).unwrap());
+        assert_eq!(topo.types[1], NodeType::Client);
+
+        topo.remove_edge(0, 1);
+        assert!(!topo.graph[0].get(1).unwrap());
+        assert!(!topo.graph[1].get(0).unwrap());
+    }
+
+    #[test]
+    fn test_bfs_no_path_with_isolated_nodes() {
+        let mut topo = Topology::new();
+        topo.insert_edge((0, NodeType::Drone), (1, NodeType::Client));
+        topo.insert_edge((2, NodeType::Server), (3, NodeType::Drone));
+
+        let result = topo.bfs(0, 3);
+        assert!(matches!(result, Err(RoutingError::NoPathFound)));
+    }
+
+    #[test]
+    fn test_observed_pdr_calculation() {
+        let mut topo = Topology::new();
+        topo.observe_success(0);
+        topo.observe_failure(0);
+        topo.observe_success(1);
+        topo.observe_failure(1);
+
+        let pdr_node_0 = topo.get_observed_pdr(0);
+        let pdr_node_1 = topo.get_observed_pdr(1);
+
+        assert_eq!(pdr_node_0, 1.0 / 2.0);
+        assert_eq!(pdr_node_1, 1.0 / 2.0);
+    }
+
+    #[test]
+    fn test_valid_path_with_drones() {
+        let mut topo = Topology::new();
+        topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
+        topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
+        topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
+
+        let path = topo.dijkstra(0, 3).expect("Path should exist");
+        assert_eq!(path, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn test_path_with_mixed_nodes() {
+        let mut topo = Topology::new();
+        topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
+        topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
+        topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
+        topo.insert_edge((3, NodeType::Server), (4, NodeType::Client)); // Non valido: Server -> Client senza Drone
+
+        let result = topo.dijkstra(0, 4);
+        assert!(matches!(result, Err(RoutingError::NoPathFound)));
+    }
+
+    #[test]
+    fn test_bfs_valid_path() {
+        let mut topo = Topology::new();
+        topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
+        topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
+        topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
+
+        let path = topo.bfs(0, 3).expect("Path should exist");
+        assert_eq!(path, vec![0, 1, 2, 3]);
     }
 }

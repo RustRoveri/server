@@ -132,6 +132,7 @@ impl SpecializedBehavior for TextBehavior {
                 let response = ContentResponse::List(content_names);
                 let response = Response::Content(response);
 
+
                 Ok(AssembledResponse {
                     data: to_allocvec(&response).map_err(|err| ProcessError::Serialize(err))?,
                     dest: initiator_id,

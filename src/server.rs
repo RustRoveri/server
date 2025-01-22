@@ -138,8 +138,10 @@ impl Server {
     /// Handles a packet based on its type.
     fn handle_packet(&mut self, packet: Packet) {
         match packet.pack_type {
-            PacketType::Ack(ack) => self.handle_ack(ack, packet.session_id),
-            PacketType::Nack(nack) => self.handle_nack(nack, packet.session_id),
+            PacketType::Ack(ack) => self.handle_ack(ack, packet.session_id, packet.routing_header),
+            PacketType::Nack(nack) => {
+                self.handle_nack(nack, packet.session_id, packet.routing_header)
+            }
             PacketType::MsgFragment(fragment) => {
                 self.handle_fragment(fragment, packet.session_id, packet.routing_header)
             }
@@ -153,7 +155,11 @@ impl Server {
     /// Handles an acknowledgment packet.
     ///
     /// Removes the corresponding fragment from the fragment manager's cache.
-    fn handle_ack(&mut self, ack: Ack, session_id: SessionId) {
+    fn handle_ack(&mut self, ack: Ack, session_id: SessionId, header: SourceRoutingHeader) {
+        if let Some(sender) = header.hops.get(0) {
+            self.topology.observe_success(*sender);
+        };
+
         self.fragment_manager
             .remove_from_cache((session_id, ack.fragment_index));
     }
@@ -162,7 +168,11 @@ impl Server {
     ///
     /// Based on the NACK type, it either reinserts the fragment into the fragment manager's buffer
     /// or initiates network discovery.
-    fn handle_nack(&mut self, nack: Nack, session_id: SessionId) {
+    fn handle_nack(&mut self, nack: Nack, session_id: SessionId, header: SourceRoutingHeader) {
+        if let Some(sender) = header.hops.get(0) {
+            self.topology.observe_failure(*sender);
+        };
+
         match nack.nack_type {
             NackType::Dropped => {
                 info!("Nack with NackType::Dropped received");
@@ -335,7 +345,8 @@ impl Server {
     /// - If the topology is not updating but no path is found, the network discovery process is started.
     /// - If the fragment is being sent to the server itself just ignore it and log an error.
     fn send_fragment(&mut self, to_be_sent_fragment: ToBeSentFragment) {
-        let path = self.topology.bfs(self.id, to_be_sent_fragment.dest);
+        //let path = self.topology.bfs(self.id, to_be_sent_fragment.dest);
+        let path = self.topology.dijkstra(self.id, to_be_sent_fragment.dest);
 
         match path {
             Ok(path) => {
@@ -424,12 +435,12 @@ mod tests {
     use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::ServerType;
     use rust_roveri_api::{ChatRequest, ContentResponse};
     use rust_roveri_api::{ChatResponse, ContentType};
     use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::{ClientEvent, ServerCommand};
     use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
+    use rust_roveri_api::{Request, ServerType};
     use rust_roveri_api::{Response, ServerEvent};
     use std::collections::hash_map::Entry;
     use std::collections::HashMap;
@@ -688,7 +699,7 @@ mod tests {
         // Send register request
         let USERNAME = "a".repeat(200);
         let PASSWORD = "b".repeat(200);
-        let request = ChatRequest::Register(USERNAME.clone(), PASSWORD);
+        let request = Request::Chat(ChatRequest::Register(USERNAME.clone(), PASSWORD));
         message_sender_tx.send((
             SERVER_ID,
             to_allocvec(&request).expect("Could not convert ChatRequest::Register(...) to bytes"),
@@ -719,7 +730,6 @@ mod tests {
         assert!(client_handle.join().is_ok());
     }
 
-    /*
     #[test]
     fn test_poisoned() {
         // Topology:
@@ -878,7 +888,7 @@ mod tests {
                 packet_recv_tx_3.clone(),
             ))
             .expect("Cannot add drone 3 to server neighbors");
-        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/ciao")));
 
         // Send list request
         let request = ContentRequest::List;
@@ -893,6 +903,7 @@ mod tests {
             .expect("Client did not receive a ContentResponse");
         match from_bytes::<ContentResponse>(&data) {
             Ok(ContentResponse::List(names)) => {
+                println!("{:?}", names);
                 assert_eq!(
                     names,
                     vec![
@@ -910,5 +921,5 @@ mod tests {
         command_recv_tx_client.send(ClientCommand::Crash);
 
         assert!(client_handle.join().is_ok());
-    }*/
+    }
 }

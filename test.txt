@@ -1,0 +1,395 @@
+
+running 12 tests
+test topology::tests::test_insert_and_remove_edge ... ok
+test topology::tests::test_bfs_no_path_with_isolated_nodes ... ok
+test topology::tests::test_observed_pdr_calculation ... ok
+test topology::tests::test_bfs_valid_path ... ok
+test topology::tests::test_path_with_mixed_nodes ... ok
+test topology::tests::test_topology_initialization ... ok
+test topology::tests::test_valid_path_with_drones ... ok
+test server::tests::set_media_path ... ok
+test server::tests::add_drone_test ... ok
+test server::tests::server_test ... ok
+test server::tests::test_poisoned ... FAILED
+test server::tests::test_dropped_request ... ok
+
+failures:
+
+---- server::tests::test_poisoned stdout ----
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+72 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+72 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+71 poisoned!
+[DRONE 72]: Forwarding fragment 0 of 1
+[DRONE 73]: Forwarding fragment 0 of 1
+List(["ciao.txt"])
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Err(NoPathFound)
+[SERVER 74] PATH Ok([74, 71, 70])
+[SERVER 74] PATH Ok([74, 71, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[SERVER 74] PATH Ok([74, 73, 72, 70])
+[DRONE 73]: Forwarding fragment 0 of 1
+[DRONE 72]: Forwarding fragment 0 of 1
+Received fragment Fragment { index: 1 out of 1, data: 0x000001086369616f2e747874 }
+[]
+thread 'server::tests::test_poisoned' panicked at src/server.rs:908:17:
+assertion `left == right` failed
+  left: []
+ right: ["src", "Cargo.toml", "README.md"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    server::tests::test_poisoned
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+

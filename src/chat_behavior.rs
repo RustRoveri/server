@@ -1,8 +1,6 @@
 //! Implements the `ChatBehavior` struct for managing chat clients and handling requests.
 
-use crate::specialized_behavior::{AssembledResponse, ProcessError, SpecializedBehavior};
-use log::error;
-use postcard::{from_bytes, to_allocvec};
+use crate::specialized_behavior::{ProcessError, SpecializedBehavior};
 use rust_roveri_api::{
     ChatRequest, ChatResponse, ClientListError, LoginError, LogoutError, MessageError, Password,
     RegisterError, Request, Response, UserName,
@@ -176,36 +174,6 @@ impl ChatBehavior {
 }
 
 impl SpecializedBehavior for ChatBehavior {
-    fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) -> AssembledResponse {
-        match self.process_assembled(assembled, initiator_id) {
-            Ok(response) => return response,
-            Err(err) => {
-                let error_message = match err {
-                    ProcessError::UnexpectedRequest => format!("Unexpected request"),
-                    ProcessError::Deserialize(_) => format!("Deserialization error"),
-                    ProcessError::Serialize(_) => format!("Serialization error"),
-                    ProcessError::FileSystem(_) => format!("Filesystem error"),
-                };
-                let error_response =
-                    Response::Chat(ChatResponse::InternalServerError(error_message));
-
-                match to_allocvec(&error_response) {
-                    Ok(bytes) => AssembledResponse {
-                        data: bytes,
-                        dest: initiator_id,
-                    },
-                    Err(e) => {
-                        error!("Failed to serialize error response: {:?}", e);
-                        AssembledResponse {
-                            data: Vec::new(),
-                            dest: initiator_id,
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// Processes a chat request and generates an appropriate response.
     ///
     /// # Arguments
@@ -228,17 +196,15 @@ impl SpecializedBehavior for ChatBehavior {
     /// - `Logout`: Logs a client out of the system.
     fn process_assembled(
         &mut self,
-        assembled: Vec<u8>,
+        request: Request,
         initiator_id: NodeId,
-    ) -> Result<AssembledResponse, ProcessError> {
-        let request = from_bytes::<Request>(&assembled).map_err(ProcessError::Deserialize)?;
-
+    ) -> Result<(Response, NodeId), ProcessError> {
         let content_request = match request {
             Request::Chat(req) => req,
             _ => return Err(ProcessError::UnexpectedRequest),
         };
 
-        match content_request {
+        let (response, dest) = match content_request {
             ChatRequest::ClientList(username) => {
                 let response = if self.is_auth(&username, initiator_id) {
                     ChatResponse::ClientList(username, self.get_client_list())
@@ -247,10 +213,7 @@ impl SpecializedBehavior for ChatBehavior {
                 };
 
                 let response = Response::Chat(response);
-                return Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest: initiator_id,
-                });
+                (response, initiator_id)
             }
             ChatRequest::Message(sender, recipient, msg) => {
                 let (response, dest) = match self.can_send_message(sender, initiator_id, recipient)
@@ -262,10 +225,7 @@ impl SpecializedBehavior for ChatBehavior {
                 };
 
                 let response = Response::Chat(response);
-                return Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest,
-                });
+                (response, dest)
             }
             ChatRequest::Register(username, password) => {
                 let response = match self.register(username.clone(), password, initiator_id) {
@@ -274,10 +234,7 @@ impl SpecializedBehavior for ChatBehavior {
                 };
 
                 let response = Response::Chat(response);
-                return Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest: initiator_id,
-                });
+                (response, initiator_id)
             }
             ChatRequest::Login(username, password) => {
                 let response = match self.login(&username, &password) {
@@ -286,10 +243,7 @@ impl SpecializedBehavior for ChatBehavior {
                 };
 
                 let response = Response::Chat(response);
-                return Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest: initiator_id,
-                });
+                (response, initiator_id)
             }
             ChatRequest::Logout(username) => {
                 let response = match self.logout(&username, initiator_id) {
@@ -298,12 +252,10 @@ impl SpecializedBehavior for ChatBehavior {
                 };
 
                 let response = Response::Chat(response);
-
-                return Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest: initiator_id,
-                });
+                (response, initiator_id)
             }
-        }
+        };
+
+        Ok((response, dest))
     }
 }

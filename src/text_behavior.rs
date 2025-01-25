@@ -1,10 +1,6 @@
 //! Implements the `TextBehavior` struct for managing text content requests.
 
-use crate::specialized_behavior::{
-    AssembledResponse, ProcessError, SetPathError, SpecializedBehavior,
-};
-use log::error;
-use postcard::{from_bytes, to_allocvec};
+use crate::specialized_behavior::{ProcessError, SetPathError, SpecializedBehavior};
 use rust_roveri_api::{
     ContentName, ContentRequest, ContentResponse, ContentType, Request, Response,
 };
@@ -45,36 +41,6 @@ impl SpecializedBehavior for TextBehavior {
         Ok(())
     }
 
-    fn handle_assembled(&mut self, assembled: Vec<u8>, initiator_id: NodeId) -> AssembledResponse {
-        match self.process_assembled(assembled, initiator_id) {
-            Ok(response) => return response,
-            Err(err) => {
-                let error_message = match err {
-                    ProcessError::UnexpectedRequest => format!("Unexpected request"),
-                    ProcessError::Deserialize(_) => format!("Deserialization error"),
-                    ProcessError::Serialize(_) => format!("Serialization error"),
-                    ProcessError::FileSystem(_) => format!("Filesystem error"),
-                };
-                let error_response =
-                    Response::Content(ContentResponse::InternalServerError(error_message));
-
-                match to_allocvec(&error_response) {
-                    Ok(bytes) => AssembledResponse {
-                        data: bytes,
-                        dest: initiator_id,
-                    },
-                    Err(e) => {
-                        error!("Failed to serialize error response: {:?}", e);
-                        AssembledResponse {
-                            data: Vec::new(),
-                            dest: initiator_id,
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// Processes a request and generates an appropriate response.
     ///
     /// # Arguments
@@ -102,17 +68,15 @@ impl SpecializedBehavior for TextBehavior {
     /// is returned.
     fn process_assembled(
         &mut self,
-        assembled: Vec<u8>,
+        request: Request,
         initiator_id: NodeId,
-    ) -> Result<AssembledResponse, ProcessError> {
-        let request = from_bytes::<Request>(&assembled).map_err(ProcessError::Deserialize)?;
-
+    ) -> Result<(Response, NodeId), ProcessError> {
         let content_request = match request {
             Request::Content(req) => req,
             _ => return Err(ProcessError::UnexpectedRequest),
         };
 
-        match content_request {
+        let (response, dest) = match content_request {
             ContentRequest::List => {
                 let entries = fs::read_dir(&self.path).map_err(ProcessError::FileSystem)?;
 
@@ -132,34 +96,27 @@ impl SpecializedBehavior for TextBehavior {
                 let response = ContentResponse::List(content_names);
                 let response = Response::Content(response);
 
-
-                Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(|err| ProcessError::Serialize(err))?,
-                    dest: initiator_id,
-                })
+                (response, initiator_id)
             }
             ContentRequest::Content(content_name) => {
                 let mut content_path = self.path.clone();
                 content_path.push(&content_name);
 
-                if !content_path.exists() || !content_path.is_file() {
+                let response = if !content_path.exists() || !content_path.is_file() {
                     let response = ContentResponse::ContentNotFound(content_name);
-                    return Ok(AssembledResponse {
-                        data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                        dest: initiator_id,
-                    });
-                }
+                    response
+                } else {
+                    let content_data = fs::read(&content_path).map_err(ProcessError::FileSystem)?;
+                    let response =
+                        ContentResponse::Content(content_name, ContentType::Text, content_data);
+                    response
+                };
 
-                let content_data = fs::read(&content_path).map_err(ProcessError::FileSystem)?;
-                let response =
-                    ContentResponse::Content(content_name, ContentType::Text, content_data);
                 let response = Response::Content(response);
-
-                Ok(AssembledResponse {
-                    data: to_allocvec(&response).map_err(ProcessError::Serialize)?,
-                    dest: initiator_id,
-                })
+                (response, initiator_id)
             }
-        }
+        };
+
+        Ok((response, dest))
     }
 }

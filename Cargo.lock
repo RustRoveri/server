@@ -59,7 +59,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#a5d295b7099f7fc65d1672351e316fd55e8ea2df"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#b37246436fba07aeff136765da569c6ea7200e20"
 dependencies = [
  "crossbeam-channel",
  "log",

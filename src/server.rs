@@ -181,12 +181,14 @@ impl Server {
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::DestinationIsDrone => {
+                self.topology.reset();
                 self.start_network_discovery();
                 let _ = self
                     .fragment_manager
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::ErrorInRouting(_) => {
+                self.topology.reset();
                 self.start_network_discovery();
                 let _ = self
                     .fragment_manager
@@ -315,7 +317,7 @@ impl Server {
     ///
     /// Sends flood request packets to all neighbors to explore the network topology.
     fn start_network_discovery(&mut self) {
-        self.topology.reset();
+        //self.topology.reset();
 
         for (_, sender) in self.packet_send.iter() {
             let packet = Packet {
@@ -375,8 +377,9 @@ impl Server {
                     to_be_sent_fragment.fragment.fragment_index,
                 ));
                 if !self.topology.is_updating() {
-                    self.start_network_discovery();
+                    self.topology.reset();
                 }
+                self.start_network_discovery();
             }
         }
     }
@@ -946,6 +949,272 @@ mod tests {
         command_recv_tx_client.send(ClientCommand::Crash);
 
         assert!(client_handle.join().is_ok());
+    }
+
+    #[test]
+    fn test_poisoned_2() {
+        // Topology:
+        //          ----- d2 -----
+        //         /              \
+        // c --- d1                d5 --- s
+        //         \              /
+        //          -- d3 -- d4 --
+
+        // Set parameters
+        const CLIENT_ID: NodeId = 70;
+        const DRONE_1_ID: NodeId = 71;
+        const DRONE_2_ID: NodeId = 72;
+        const DRONE_3_ID: NodeId = 73;
+        const DRONE_4_ID: NodeId = 74;
+        const DRONE_5_ID: NodeId = 75;
+        const SERVER_ID: NodeId = 76;
+        const PDR_1: f32 = 0.9;
+        const PDR_2: f32 = 1.0;
+        const PDR_3: f32 = 0.9;
+        const PDR_4: f32 = 0.9;
+        const PDR_5: f32 = 0.9;
+
+        // Create browser
+        let (message_sender_tx, message_sender_rx) = unbounded();
+        let (message_receiver_tx, message_receiver_rx) = unbounded();
+
+        // Create client channels
+        let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
+        let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
+        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+
+        // Create drone 1 channels
+        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+
+        // Create drone 2 channels
+        let (controller_send_tx_2, _controller_send_rx_2) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_2, controller_recv_rx_2) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_2, packet_recv_rx_2) = unbounded::<Packet>();
+
+        // Create drone 3 channels
+        let (controller_send_tx_3, _controller_send_rx_3) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_3, controller_recv_rx_3) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_3, packet_recv_rx_3) = unbounded::<Packet>();
+
+        // Create drone 4 channels
+        let (controller_send_tx_4, _controller_send_rx_4) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_4, controller_recv_rx_4) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_4, packet_recv_rx_4) = unbounded::<Packet>();
+
+        // Create drone 5 channels
+        let (controller_send_tx_5, _controller_send_rx_5) = unbounded::<DroneEvent>();
+        let (controller_recv_tx_5, controller_recv_rx_5) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_5, packet_recv_rx_5) = unbounded::<Packet>();
+
+        // Create server channels
+        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
+        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+
+        // Create client
+        let mut client = Client::new(
+            CLIENT_ID,
+            packet_recv_rx_client,
+            command_recv_rx_client,
+            event_send_tx_client,
+            message_sender_rx,
+            message_receiver_tx,
+        );
+        let client_handle = thread::spawn(move || {
+            client.run();
+        });
+        command_recv_tx_client
+            .send(ClientCommand::AddDrone(
+                DRONE_1_ID,
+                packet_recv_tx_1.clone(),
+            ))
+            .expect("Cannot add drone 1 to client neighbors");
+
+        // Create drone 1
+        let packet_send_1 = HashMap::new();
+        let mut drone_1 = RustRoveri::new(
+            DRONE_1_ID,
+            controller_send_tx_1,
+            controller_recv_rx_1,
+            packet_recv_rx_1.clone(),
+            packet_send_1,
+            PDR_1,
+        );
+        let handle_1 = thread::spawn(move || drone_1.run());
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                CLIENT_ID,
+                packet_recv_tx_client.clone(),
+            ))
+            .expect("Cannot add client to drone 1 neighbors");
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                DRONE_2_ID,
+                packet_recv_tx_2.clone(),
+            ))
+            .expect("Cannot add drone 2 to drone 1 neighbors");
+        controller_recv_tx_1
+            .send(DroneCommand::AddSender(
+                DRONE_3_ID,
+                packet_recv_tx_3.clone(),
+            ))
+            .expect("Cannot add drone 3 to drone 1 neighbors");
+
+        // Create drone 2
+        let packet_send_2 = HashMap::new();
+        let mut drone_2 = RustRoveri::new(
+            DRONE_2_ID,
+            controller_send_tx_2,
+            controller_recv_rx_2,
+            packet_recv_rx_2.clone(),
+            packet_send_2,
+            PDR_2,
+        );
+        let handle_2 = thread::spawn(move || drone_2.run());
+        controller_recv_tx_2
+            .send(DroneCommand::AddSender(
+                DRONE_1_ID,
+                packet_recv_tx_1.clone(),
+            ))
+            .expect("Cannot add drone 1 to drone 2 neighbors");
+        controller_recv_tx_2
+            .send(DroneCommand::AddSender(
+                DRONE_5_ID,
+                packet_recv_tx_5.clone(),
+            ))
+            .expect("Cannot add drone 5 to drone 2 neighbors");
+
+        // Create drone 3
+        let packet_send_3 = HashMap::new();
+        let mut drone_3 = RustRoveri::new(
+            DRONE_3_ID,
+            controller_send_tx_3,
+            controller_recv_rx_3,
+            packet_recv_rx_3.clone(),
+            packet_send_3,
+            PDR_3,
+        );
+        let handle_3 = thread::spawn(move || drone_3.run());
+        controller_recv_tx_3
+            .send(DroneCommand::AddSender(
+                DRONE_1_ID,
+                packet_recv_tx_1.clone(),
+            ))
+            .expect("Cannot add drone 1 to drone 3 neighbors");
+        controller_recv_tx_3
+            .send(DroneCommand::AddSender(
+                DRONE_4_ID,
+                packet_recv_tx_4.clone(),
+            ))
+            .expect("Cannot add drone 4 to drone 3 neighbors");
+
+        // Create drone 4
+        let packet_send_4 = HashMap::new();
+        let mut drone_4 = RustRoveri::new(
+            DRONE_4_ID,
+            controller_send_tx_4,
+            controller_recv_rx_4,
+            packet_recv_rx_4.clone(),
+            packet_send_4,
+            PDR_4,
+        );
+        let handle_4 = thread::spawn(move || drone_4.run());
+        controller_recv_tx_4
+            .send(DroneCommand::AddSender(
+                DRONE_3_ID,
+                packet_recv_tx_3.clone(),
+            ))
+            .expect("Cannot add drone 3 to drone 4 neighbors");
+        controller_recv_tx_4
+            .send(DroneCommand::AddSender(
+                DRONE_5_ID,
+                packet_recv_tx_5.clone(),
+            ))
+            .expect("Cannot add drone 5 to drone 2 neighbors");
+
+        // Create drone 5
+        let packet_send_5 = HashMap::new();
+        let mut drone_5 = RustRoveri::new(
+            DRONE_5_ID,
+            controller_send_tx_5,
+            controller_recv_rx_5,
+            packet_recv_rx_5.clone(),
+            packet_send_5,
+            PDR_5,
+        );
+        let handle_5 = thread::spawn(move || drone_5.run());
+        controller_recv_tx_5
+            .send(DroneCommand::AddSender(
+                DRONE_2_ID,
+                packet_recv_tx_2.clone(),
+            ))
+            .expect("Cannot add drone 2 to drone 5 neighbors");
+        controller_recv_tx_5
+            .send(DroneCommand::AddSender(
+                DRONE_4_ID,
+                packet_recv_tx_4.clone(),
+            ))
+            .expect("Cannot add drone 4 to drone 5 neighbors");
+        controller_recv_tx_5
+            .send(DroneCommand::AddSender(
+                SERVER_ID,
+                packet_recv_tx_server.clone(),
+            ))
+            .expect("Cannot add server to drone 5 neighbors");
+
+        // Create server
+        let mut server = Server::new(
+            SERVER_ID,
+            command_recv_rx_server,
+            packet_recv_rx_server,
+            event_send_tx_server,
+            ServerType::ContentText,
+        );
+        let server_handle = thread::spawn(move || {
+            server.run();
+        });
+        command_recv_tx_server
+            .send(ServerCommand::AddDrone(
+                DRONE_5_ID,
+                packet_recv_tx_5.clone(),
+            ))
+            .expect("Cannot add drone 5 to server neighbors");
+        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+
+        // Send list request
+        let request = Request::Content(ContentRequest::List);
+        message_sender_tx.send((
+            SERVER_ID,
+            to_allocvec(&request).expect("Could not convert Request to bytes"),
+        ));
+
+        // Receive list response
+        let (id, data) = message_receiver_rx
+            .recv()
+            .expect("Client did not receive a Response");
+        match from_bytes::<Response>(&data) {
+            Ok(Response::Content(ContentResponse::List(names))) => {}
+            _ => panic!("Response is not a ContentResponse of List"),
+        }
+
+        // Crash nodes
+        command_recv_tx_client.send(ClientCommand::Crash);
+        controller_recv_tx_1.send(DroneCommand::Crash);
+        controller_recv_tx_2.send(DroneCommand::Crash);
+        controller_recv_tx_3.send(DroneCommand::Crash);
+        controller_recv_tx_4.send(DroneCommand::Crash);
+        controller_recv_tx_5.send(DroneCommand::Crash);
+        command_recv_tx_server.send(ServerCommand::Crash);
+
+        assert!(client_handle.join().is_ok());
+        assert!(handle_1.join().is_ok());
+        assert!(handle_2.join().is_ok());
+        assert!(handle_3.join().is_ok());
+        assert!(handle_4.join().is_ok());
+        assert!(handle_5.join().is_ok());
+        assert!(server_handle.join().is_ok());
     }
 
     #[test]

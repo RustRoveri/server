@@ -13,7 +13,7 @@ use wg_2024::{network::NodeId, packet::NodeType};
 const NETWORK_SIZE: usize = 256;
 
 /// Estimated duration after which the topology is considered fully updated.
-const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(3);
+const ESTIMATED_UPDATE_TIME: Duration = Duration::from_secs(2);
 
 struct Rate {
     pub success: f64,

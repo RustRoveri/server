@@ -181,14 +181,14 @@ impl Server {
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::DestinationIsDrone => {
-                self.topology.reset();
+                //self.topology.reset();
                 self.start_network_discovery();
                 let _ = self
                     .fragment_manager
                     .insert_from_cache((session_id, nack.fragment_index));
             }
             NackType::ErrorInRouting(_) => {
-                self.topology.reset();
+                //self.topology.reset();
                 self.start_network_discovery();
                 let _ = self
                     .fragment_manager
@@ -317,7 +317,7 @@ impl Server {
     ///
     /// Sends flood request packets to all neighbors to explore the network topology.
     fn start_network_discovery(&mut self) {
-        //self.topology.reset();
+        self.topology.reset();
 
         for (_, sender) in self.packet_send.iter() {
             let packet = Packet {
@@ -377,9 +377,9 @@ impl Server {
                     to_be_sent_fragment.fragment.fragment_index,
                 ));
                 if !self.topology.is_updating() {
-                    self.topology.reset();
+                    //self.topology.reset();
+                    self.start_network_discovery();
                 }
-                self.start_network_discovery();
             }
         }
     }

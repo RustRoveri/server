@@ -9,7 +9,6 @@ use crate::media_behavior::MediaBehavior;
 use crate::specialized_behavior::{SetPathError, SpecializedBehavior};
 use crate::text_behavior::TextBehavior;
 use crate::topology::{RoutingError, Topology};
-use core::panic;
 use crossbeam_channel::{select_biased, Receiver, Sender};
 use log::{error, info, warn};
 use rust_roveri_api::{FloodId, ServerCommand, ServerEvent, ServerType, SessionId};
@@ -219,14 +218,13 @@ impl Server {
             Ok(AssemblerStatus::Complete) => {
                 match self.assemblers_manager.retrieve_assembled(session_id) {
                     Ok(assembled) => {
-                        let initiator_id = match header.hops.first() {
-                            Some(hop) => hop,
-                            None => panic!(
+                        match header.hops.first() {
+                            Some(id) => self.handle_assembled(assembled, *id),
+                            None => error!(
                                 "{} Received a packet with empty hops vec",
                                 self.get_prefix()
                             ),
                         };
-                        self.handle_assembled(assembled, *initiator_id);
                     }
                     Err(RetrieveError::Incomplete) => warn!(
                         "{} Tryed to assemble an incomplete message",
@@ -283,16 +281,21 @@ impl Server {
             },
         };
 
+        let mut hops: Vec<NodeId> = flood_res
+            .path_trace
+            .iter()
+            .map(|(id, _)| *id)
+            .rev()
+            .collect();
+
+        if let Some(last) = hops.last() {
+            if *last != req.initiator_id {
+                hops.push(req.initiator_id);
+            }
+        }
+
         let flood_res_packet = Packet {
-            routing_header: SourceRoutingHeader {
-                hop_index: 1,
-                hops: flood_res
-                    .path_trace
-                    .iter()
-                    .map(|(id, _)| *id)
-                    .rev()
-                    .collect(),
-            },
+            routing_header: SourceRoutingHeader { hop_index: 1, hops },
             pack_type: PacketType::FloodResponse(flood_res),
             session_id,
         };
@@ -317,6 +320,7 @@ impl Server {
     ///
     /// Sends flood request packets to all neighbors to explore the network topology.
     fn start_network_discovery(&mut self) {
+        println!("STARTING NET DISCOVERY");
         self.topology.reset();
 
         for (_, sender) in self.packet_send.iter() {
@@ -400,7 +404,6 @@ impl Server {
             None => {
                 let message = format!("{} Could not reach neighbor", self.get_prefix());
                 error!("{}", message);
-                panic!("{}", message);
             }
         }
     }
@@ -412,7 +415,6 @@ impl Server {
         } else {
             let message = format!("{} The drone is disconnected", self.get_prefix());
             error!("{}", message);
-            panic!("{}", message);
         }
     }
 
@@ -421,7 +423,6 @@ impl Server {
         if self.controller_send.send(server_event).is_err() {
             let message = format!("{} The controller is disconnected", self.get_prefix());
             error!("{}", message);
-            //panic!("{}", message);
         }
     }
 
@@ -435,12 +436,11 @@ impl Server {
 mod tests {
     use crate::Server;
     use client::client::Client;
-    use core::panic;
     use crossbeam_channel::unbounded;
     use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::{ChatRequest, ContentResponse};
+    use rust_roveri_api::{ChatRequest, ContentResponse, GuiClientMessage};
     use rust_roveri_api::{ChatResponse, ContentType};
     use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::{ClientEvent, ServerCommand};
@@ -598,13 +598,29 @@ mod tests {
 
         // CONTENT
         let request = ChatRequest::Register("ciao".to_string(), "cane".to_string());
-        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).unwrap(),
+        });
+
         let request = ChatRequest::Register("come".to_string(), "xx".to_string());
-        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).unwrap(),
+        });
+
         let request = ChatRequest::Register("ewe".to_string(), "casdcascd".to_string());
-        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).unwrap(),
+        });
+
         let request = ChatRequest::Register("cccccc".to_string(), "cascdac".to_string());
-        message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).unwrap(),
+        });
+
         let (id, data) = message_receiver_rx.recv().unwrap();
         if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
             println!("{} {:?}", name, vec);
@@ -717,10 +733,10 @@ mod tests {
         let USERNAME = "a".repeat(200);
         let PASSWORD = "b".repeat(200);
         let request = Request::Chat(ChatRequest::Register(USERNAME.clone(), PASSWORD));
-        message_sender_tx.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert ChatRequest::Register(...) to bytes"),
-        ));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).unwrap(),
+        });
 
         // Receive client list
         let (id, data) = message_receiver_rx
@@ -1182,6 +1198,8 @@ mod tests {
             ))
             .expect("Cannot add drone 5 to server neighbors");
         command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+
+        thread::sleep(Duration::from_millis(100));
 
         // Send list request
         let request = Request::Content(ContentRequest::List);

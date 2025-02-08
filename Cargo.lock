@@ -93,7 +93,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#008aed1b3c58e980fc3dac97a76cc1c1f2beaf90"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#7ff4c0e3e2328c1dc9cf69ffd4ec92548a8db0d7"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -403,7 +403,7 @@ dependencies = [
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#5b0faa172570617a88032d015e0edda2b0a078ee"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#95567c716f3709c2931d3a18fea0f77223563b77"
 dependencies = [
  "crossbeam-channel",
  "egui",
@@ -489,9 +489,9 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "syn"
-version = "2.0.96"
+version = "2.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5d0adab1ae378d7f53bdebc67a39f1f151407ef230f0ce2883572f5d8985c80"
+checksum = "36147f1a48ae0ec2b5b3bc5b537d267457555a10dc06f3dbc8cb11ba3006d3b1"
 dependencies = [
  "proc-macro2",
  "quote",

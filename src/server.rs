@@ -51,7 +51,7 @@ impl Server {
             controller_send,
             fragmenter: Fragmenter::new(),
             assemblers_manager: AssemblersManager::new(),
-            topology: Topology::new(),
+            topology: Topology::new(id),
             packet_send: HashMap::new(),
             specialized: match server_type {
                 ServerType::Chat => Box::new(ChatBehavior::new()),

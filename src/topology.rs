@@ -48,6 +48,7 @@ impl PartialOrd for State {
 /// The `Topology` struct tracks connections between nodes and their types.
 /// It uses a bit matrix (`BitArray`) to represent edges between nodes.
 pub struct Topology {
+    node_id: NodeId,
     graph: [BitArray<[u8; 32]>; NETWORK_SIZE],
     types: [NodeType; NETWORK_SIZE],
     observed_trend: [Rate; NETWORK_SIZE],
@@ -61,10 +62,15 @@ pub enum RoutingError {
 }
 
 impl Topology {
-    pub fn new() -> Self {
+    pub fn new(node_id: NodeId) -> Self {
         Self {
+            node_id,
             graph: [BitArray::new([0; 32]); NETWORK_SIZE],
-            types: [NodeType::Drone; NETWORK_SIZE],
+            types: {
+                let mut types = [NodeType::Drone; NETWORK_SIZE];
+                types[node_id as usize] = NodeType::Server;
+                types
+            },
             observed_trend: [const {
                 Rate {
                     success: 0.0,
@@ -83,8 +89,13 @@ impl Topology {
         self.graph[node1_id].set(node2_id, true);
         self.graph[node2_id].set(node1_id, true);
 
-        self.types[node1_id] = node1.1;
-        self.types[node2_id] = node2.1;
+        if self.node_id != node1.0 {
+            self.types[node1_id] = node1.1;
+        }
+
+        if self.node_id != node2.0 {
+            self.types[node2_id] = node2.1;
+        }
     }
 
     /// Removes an edge between two nodes in the topology.
@@ -193,7 +204,10 @@ impl Topology {
             }
 
             // For each node we can reach, see if we can find a way with
-            // a lower cost going through this node
+            // a lower cost, where the cost is calculated by
+            // the pdr of the whole path for reaching the current node
+            // + the probability that the packet will reach the next drop
+            // but it will drop there
             for neighbor in self.graph[position].iter_ones() {
                 if neighbor != dest_id && self.types[neighbor] != NodeType::Drone {
                     continue;
@@ -282,14 +296,14 @@ mod tests {
 
     #[test]
     fn test_topology_initialization() {
-        let topo = Topology::new();
+        let topo = Topology::new(1);
         assert_eq!(topo.graph.len(), NETWORK_SIZE);
         assert_eq!(topo.types.len(), NETWORK_SIZE);
     }
 
     #[test]
     fn test_insert_and_remove_edge() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(2);
         topo.insert_edge((0, NodeType::Drone), (1, NodeType::Client));
         assert!(topo.graph[0].get(1).unwrap());
         assert!(topo.graph[1].get(0).unwrap());
@@ -302,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_bfs_no_path_with_isolated_nodes() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(2);
         topo.insert_edge((0, NodeType::Drone), (1, NodeType::Client));
         topo.insert_edge((2, NodeType::Server), (3, NodeType::Drone));
 
@@ -312,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_observed_pdr_calculation() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(1);
         topo.observe_success(0);
         topo.observe_failure(0);
         topo.observe_success(1);
@@ -327,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_valid_path_with_drones() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(4);
         topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
         topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
         topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
@@ -338,7 +352,7 @@ mod tests {
 
     #[test]
     fn test_path_with_mixed_nodes() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(3);
         topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
         topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
         topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
@@ -350,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_bfs_valid_path() {
-        let mut topo = Topology::new();
+        let mut topo = Topology::new(3);
         topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
         topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
         topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));

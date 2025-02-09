@@ -460,27 +460,27 @@ mod tests {
     fn add_drone_test() {
         // Create drone 1 channels
         const DRONE_1_ID: NodeId = 71;
-        let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
-        let (controller_recv_tx_1, controller_recv_rx_1) = unbounded::<DroneCommand>();
-        let (packet_recv_tx_1, packet_recv_rx_1) = unbounded::<Packet>();
+        let (_controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
+        let (_controller_recv_tx_1, _controller_recv_rx_1) = unbounded::<DroneCommand>();
+        let (packet_recv_tx_1, _packet_recv_rx_1) = unbounded::<Packet>();
 
         //Create Server
         const SERVER_ID: NodeId = 72;
-        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (_packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (s00, r01) = unbounded::<ServerCommand>();
-        let (s10, r11) = unbounded::<ServerEvent>();
+        let (s10, _r11) = unbounded::<ServerEvent>();
 
         let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
         let server_handle = thread::spawn(move || {
             server.run();
         });
-        s00.send(ServerCommand::AddDrone(
+        let _ = s00.send(ServerCommand::AddDrone(
             DRONE_1_ID,
             packet_recv_tx_1.clone(),
         ));
 
         thread::sleep(Duration::from_millis(100));
-        s00.send(ServerCommand::Crash);
+        let _ = s00.send(ServerCommand::Crash);
         assert!(server_handle.join().is_ok(), "Server panicked");
     }
 
@@ -488,18 +488,18 @@ mod tests {
     fn set_media_path() {
         //Create Server
         const SERVER_ID: NodeId = 72;
-        let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
+        let (_packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (s00, r01) = unbounded::<ServerCommand>();
-        let (s10, r11) = unbounded::<ServerEvent>();
+        let (s10, _r11) = unbounded::<ServerEvent>();
 
         let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
         let server_handle = thread::spawn(move || {
             server.run();
         });
-        s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp")));
+        let _ = s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp")));
 
         thread::sleep(Duration::from_millis(100));
-        s00.send(ServerCommand::Crash);
+        let _ = s00.send(ServerCommand::Crash);
         assert!(server_handle.join().is_ok(), "Server panicked");
     }
 
@@ -513,7 +513,7 @@ mod tests {
         const CLIENT_ID: NodeId = 70;
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
-        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+        let (event_send_tx_client, _event_send_rx_client) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         const DRONE_1_ID: NodeId = 71;
@@ -525,7 +525,7 @@ mod tests {
         const SERVER_ID: NodeId = 72;
         let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (s00, r01) = unbounded::<ServerCommand>();
-        let (s10, r11) = unbounded::<ServerEvent>();
+        let (s10, _r11) = unbounded::<ServerEvent>();
 
         // Create client
         let mut client = Client::new(
@@ -658,7 +658,7 @@ mod tests {
         const CLIENT_ID: NodeId = 70;
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
-        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+        let (event_send_tx_client, _event_send_rx_client) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         const DRONE_1_ID: NodeId = 71;
@@ -670,7 +670,7 @@ mod tests {
         const SERVER_ID: NodeId = 72;
         let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
-        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+        let (event_send_tx_server, _event_send_rx_server) = unbounded::<ServerEvent>();
 
         // Create client
         let mut client = Client::new(
@@ -681,7 +681,6 @@ mod tests {
             message_sender_rx,
             message_receiver_tx,
         );
-        //client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
         command_recv_tx_client
             .send(ClientCommand::AddDrone(
                 DRONE_1_ID,
@@ -728,17 +727,17 @@ mod tests {
         let _ = thread::spawn(move || {
             server.run();
         });
-        command_recv_tx_server.send(ServerCommand::AddDrone(
+        let _ = command_recv_tx_server.send(ServerCommand::AddDrone(
             DRONE_1_ID,
             packet_recv_tx_1.clone(),
         ));
-        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+        let _ = command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
 
         // Send register request
-        let USERNAME = "a".repeat(200);
-        let PASSWORD = "b".repeat(200);
-        let request = Request::Chat(ChatRequest::Register(USERNAME.clone(), PASSWORD));
-        message_sender_tx.send(GuiClientMessage::Message {
+        let username = "ciao".repeat(200);
+        let password = "comeva".repeat(200);
+        let request = Request::Chat(ChatRequest::Register(username.clone(), password));
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).unwrap(),
         });
@@ -757,8 +756,8 @@ mod tests {
             Ok(Response::Chat(response)) => {
                 match response {
                     ChatResponse::ClientList(username, usernames) => {
-                        assert_eq!(username, USERNAME);
-                        assert_eq!(usernames, vec![USERNAME.clone()]);
+                        assert_eq!(username, username);
+                        assert_eq!(usernames, vec![username.clone()]);
                     }
                     _ => panic!("ChatResponse is not ClientList, {:?}", response),
                 };
@@ -768,7 +767,7 @@ mod tests {
 
         // Crash client
         thread::sleep(Duration::from_millis(1000));
-        command_recv_tx_client.send(ClientCommand::Crash);
+        let _ = command_recv_tx_client.send(ClientCommand::Crash);
 
         assert!(client_handle.join().is_ok());
     }
@@ -799,7 +798,7 @@ mod tests {
         // Create client channels
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
-        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+        let (event_send_tx_client, _) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
@@ -819,7 +818,7 @@ mod tests {
         // Create server channels
         let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
-        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+        let (event_send_tx_server, _) = unbounded::<ServerEvent>();
 
         // Create client
         let mut client = Client::new(
@@ -830,14 +829,12 @@ mod tests {
             message_sender_rx,
             message_receiver_tx,
         );
-        //client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
         command_recv_tx_client
             .send(ClientCommand::AddDrone(
                 DRONE_1_ID,
                 packet_recv_tx_1.clone(),
             ))
             .expect("Cannot add client 1 to drone 1 neighbors");
-        //client.add_drone(DRONE_2_ID, packet_recv_tx_2.clone());
         command_recv_tx_client
             .send(ClientCommand::AddDrone(
                 DRONE_2_ID,
@@ -858,7 +855,7 @@ mod tests {
             packet_send_1,
             PDR_1,
         );
-        let handle_1 = thread::spawn(move || drone_1.run());
+        let _ = thread::spawn(move || drone_1.run());
         controller_recv_tx_1
             .send(DroneCommand::AddSender(
                 CLIENT_ID,
@@ -882,7 +879,7 @@ mod tests {
             packet_send_2,
             PDR_2,
         );
-        let handle_2 = thread::spawn(move || drone_2.run());
+        let _ = thread::spawn(move || drone_2.run());
         controller_recv_tx_2
             .send(DroneCommand::AddSender(
                 CLIENT_ID,
@@ -906,7 +903,7 @@ mod tests {
             packet_send_3,
             PDR_3,
         );
-        let handle_3 = thread::spawn(move || drone_3.run());
+        let _ = thread::spawn(move || drone_3.run());
         controller_recv_tx_3
             .send(DroneCommand::AddSender(
                 DRONE_2_ID,
@@ -943,12 +940,13 @@ mod tests {
                 packet_recv_tx_3.clone(),
             ))
             .expect("Cannot add drone 3 to server neighbors");
-        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/ciao")));
+        let _ =
+            command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/ciao")));
 
         // Send list request
         let request = ContentRequest::List;
 
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
         });
@@ -970,7 +968,7 @@ mod tests {
 
         // Crash client
         thread::sleep(Duration::from_millis(100));
-        command_recv_tx_client.send(ClientCommand::Crash);
+        let _ = command_recv_tx_client.send(ClientCommand::Crash);
 
         assert!(client_handle.join().is_ok());
     }
@@ -1005,7 +1003,7 @@ mod tests {
         // Create client channels
         let (packet_recv_tx_client, packet_recv_rx_client) = unbounded::<Packet>();
         let (command_recv_tx_client, command_recv_rx_client) = unbounded::<ClientCommand>();
-        let (event_send_tx_client, event_send_rx_client) = unbounded::<ClientEvent>();
+        let (event_send_tx_client, _event_send_rx_client) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
@@ -1035,7 +1033,7 @@ mod tests {
         // Create server channels
         let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
-        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+        let (event_send_tx_server, _event_send_rx_server) = unbounded::<ServerEvent>();
 
         // Create client
         let mut client = Client::new(
@@ -1205,13 +1203,13 @@ mod tests {
                 packet_recv_tx_5.clone(),
             ))
             .expect("Cannot add drone 5 to server neighbors");
-        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+        let _ = command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
 
         thread::sleep(Duration::from_millis(100));
 
         // Send list request
         let request = Request::Content(ContentRequest::List);
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
         });
@@ -1232,13 +1230,13 @@ mod tests {
         }
 
         // Crash nodes
-        command_recv_tx_client.send(ClientCommand::Crash);
-        controller_recv_tx_1.send(DroneCommand::Crash);
-        controller_recv_tx_2.send(DroneCommand::Crash);
-        controller_recv_tx_3.send(DroneCommand::Crash);
-        controller_recv_tx_4.send(DroneCommand::Crash);
-        controller_recv_tx_5.send(DroneCommand::Crash);
-        command_recv_tx_server.send(ServerCommand::Crash);
+        let _ = command_recv_tx_client.send(ClientCommand::Crash);
+        let _ = controller_recv_tx_1.send(DroneCommand::Crash);
+        let _ = controller_recv_tx_2.send(DroneCommand::Crash);
+        let _ = controller_recv_tx_3.send(DroneCommand::Crash);
+        let _ = controller_recv_tx_4.send(DroneCommand::Crash);
+        let _ = controller_recv_tx_5.send(DroneCommand::Crash);
+        let _ = command_recv_tx_server.send(ServerCommand::Crash);
 
         assert!(client_handle.join().is_ok());
         assert!(handle_1.join().is_ok());
@@ -1264,13 +1262,12 @@ mod tests {
         const DRONE_1_ID: NodeId = 73;
         const SERVER_ID: NodeId = 74;
         const PDR: f32 = 0.0;
-        let USERNAME_1 = "giovanni".to_string();
-        let PASSWORD_1 = "password1".to_string();
-        let USERNAME_2 = "marco".to_string();
-        let PASSWORD_2 = "password2".to_string();
-        let MESSAGE_1 = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec mi augue, pretium id neque sed, suscipit pretium nunc. Aliquam et tortor sodales, elementum lorem in, viverra urna. Phasellus porttitor facilisis auctor. Maecenas eu laoreet velit. Suspendisse dictum sollicitudin nisi, in tempor nunc volutpat a. Suspendisse elementum nulla quam, sed pharetra eros semper vel. Pellentesque non porta nisi, nec dapibus est. Proin commodo et velit sit amet ultricies. Pellentesque facilisis, ligula a viverra tincidunt, nulla metus tristique velit, vel maximus leo est eu nulla.
-Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada, risus vel mollis lacinia, risus velit egestas orci, et accumsan turpis massa id ante. Donec finibus imperdiet mattis. Vivamus nec justo porta, mattis lorem in, semper lacus. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Sed laoreet sed nibh et euismod. Quisque in consectetur nisl, in commodo diam. Vestibulum sagittis massa velit, ac mattis eros dignissim non. Sed felis nibh, eleifend sit amet aliquet eu, sodales a nunc. Nulla et neque risus. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus.".to_string();
-        let MESSAGE_2 = "Ut rutrum libero ac ipsum tincidunt, sit amet tristique erat volutpat. Praesent rhoncus euismod velit eu interdum. In molestie faucibus bibendum. Nulla mollis tristique lorem, eget efficitur leo rhoncus a. Sed commodo arcu maximus metus malesuada lacinia. Morbi suscipit, sem id maximus congue, nulla diam rhoncus lacus, eget eleifend sapien lorem sed enim. Suspendisse porta nisi et suscipit congue. Suspendisse feugiat nisl id nisi scelerisque, vel convallis risus tincidunt. Etiam at tempus risus.".to_string();
+        let username_1 = "gggggeeeeean".to_string();
+        let password_1 = "password1".to_string();
+        let username_2 = "marco".to_string();
+        let password_2 = "password2".to_string();
+        let message_1 = "ciao come stai".to_string();
+        let message_2 = "beneeeee".to_string();
 
         // Create chat 1 client
         let (message_sender_tx_1, message_sender_rx_1) = unbounded();
@@ -1283,12 +1280,12 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
         // Create client 1 channels
         let (packet_recv_tx_client_1, packet_recv_rx_client_1) = unbounded::<Packet>();
         let (command_recv_tx_client_1, command_recv_rx_client_1) = unbounded::<ClientCommand>();
-        let (event_send_tx_client_1, event_send_rx_client_1) = unbounded::<ClientEvent>();
+        let (event_send_tx_client_1, _event_send_rx_client_1) = unbounded::<ClientEvent>();
 
         // Create client 2 channels
         let (packet_recv_tx_client_2, packet_recv_rx_client_2) = unbounded::<Packet>();
         let (command_recv_tx_client_2, command_recv_rx_client_2) = unbounded::<ClientCommand>();
-        let (event_send_tx_client_2, event_send_rx_client_2) = unbounded::<ClientEvent>();
+        let (event_send_tx_client_2, _event_send_rx_client_2) = unbounded::<ClientEvent>();
 
         // Create drone 1 channels
         let (controller_send_tx_1, _controller_send_rx_1) = unbounded::<DroneEvent>();
@@ -1298,7 +1295,7 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
         // Create server channels
         let (packet_recv_tx_server, packet_recv_rx_server) = unbounded::<Packet>();
         let (command_recv_tx_server, command_recv_rx_server) = unbounded::<ServerCommand>();
-        let (event_send_tx_server, event_send_rx_server) = unbounded::<ServerEvent>();
+        let (event_send_tx_server, _event_send_rx_server) = unbounded::<ServerEvent>();
 
         // Create client 1
         let mut client_1 = Client::new(
@@ -1386,7 +1383,7 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
         let _ = command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
 
         // User 1 registers
-        let request = Request::Chat(ChatRequest::Register(USERNAME_1.clone(), PASSWORD_1));
+        let request = Request::Chat(ChatRequest::Register(username_1.clone(), password_1));
         let _ = message_sender_tx_1.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert Request to bytes"),
@@ -1404,14 +1401,14 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::ClientList(username, usernames))) => {
-                assert_eq!(username, USERNAME_1);
-                assert_eq!(usernames, vec![USERNAME_1.clone()]);
+                assert_eq!(username, username_1);
+                assert_eq!(usernames, vec![username_1.clone()]);
             }
             _ => panic!("Response is not a ContentResponse of ClientList"),
         }
 
         // User 2 registers
-        let request = Request::Chat(ChatRequest::Register(USERNAME_2.clone(), PASSWORD_2));
+        let request = Request::Chat(ChatRequest::Register(username_2.clone(), password_2));
         let _ = message_sender_tx_2.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert Request to bytes"),
@@ -1429,18 +1426,18 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::ClientList(username, usernames))) => {
-                assert_eq!(username, USERNAME_2);
+                assert_eq!(username, username_2);
                 assert_eq!(
                     usernames.len(),
                     2,
                     "Client list contains more users than expected"
                 );
                 assert!(
-                    usernames.contains(&USERNAME_1),
+                    usernames.contains(&username_1),
                     "Client list does not contain user 1"
                 );
                 assert!(
-                    usernames.contains(&USERNAME_2),
+                    usernames.contains(&username_2),
                     "Client list does not contain user 2"
                 );
             }
@@ -1449,9 +1446,9 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         // User 1 sends message
         let request = Request::Chat(ChatRequest::Message(
-            USERNAME_1.clone(),
-            USERNAME_2.clone(),
-            MESSAGE_1.clone(),
+            username_1.clone(),
+            username_2.clone(),
+            message_1.clone(),
         ));
         let _ = message_sender_tx_1.send(GuiClientMessage::Message {
             dst: SERVER_ID,
@@ -1470,17 +1467,17 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::Message(username, message))) => {
-                assert_eq!(username, USERNAME_1);
-                assert_eq!(message, MESSAGE_1);
+                assert_eq!(username, username_1);
+                assert_eq!(message, message_1);
             }
             _ => panic!("Response is not a ChatResponse of Message"),
         }
 
         // User 2 sends message
         let request = Request::Chat(ChatRequest::Message(
-            USERNAME_2.clone(),
-            USERNAME_1.clone(),
-            MESSAGE_2.clone(),
+            username_2.clone(),
+            username_1.clone(),
+            message_2.clone(),
         ));
         let _ = message_sender_tx_2.send(GuiClientMessage::Message {
             dst: SERVER_ID,
@@ -1499,14 +1496,14 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::Message(username, message))) => {
-                assert_eq!(username, USERNAME_2);
-                assert_eq!(message, MESSAGE_2);
+                assert_eq!(username, username_2);
+                assert_eq!(message, message_2);
             }
             _ => panic!("Response is not a ChatResponse of Message"),
         }
 
         // User 1 logs out
-        let request = Request::Chat(ChatRequest::Logout(USERNAME_1.clone()));
+        let request = Request::Chat(ChatRequest::Logout(username_1.clone()));
         let _ = message_sender_tx_1.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert Request to bytes"),
@@ -1524,13 +1521,13 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::LogoutSuccess(username))) => {
-                assert_eq!(username, USERNAME_1);
+                assert_eq!(username, username_1);
             }
             _ => panic!("Response is not a ChatResponse of LogoutSuccess"),
         }
 
         // User 2 logs out
-        let request = Request::Chat(ChatRequest::Logout(USERNAME_2.clone()));
+        let request = Request::Chat(ChatRequest::Logout(username_2.clone()));
         let _ = message_sender_tx_2.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).expect("Could not convert Request to bytes"),
@@ -1548,7 +1545,7 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::LogoutSuccess(username))) => {
-                assert_eq!(username, USERNAME_2);
+                assert_eq!(username, username_2);
             }
             _ => panic!("Response is not a ChatResponse of LogoutSuccess"),
         }

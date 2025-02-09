@@ -436,18 +436,16 @@ impl Server {
 mod tests {
     use crate::Server;
     use client::client::Client;
+    use core::panic;
     use crossbeam_channel::unbounded;
-    use crossbeam_channel::{select_biased, Receiver, Sender};
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;
-    use rust_roveri_api::{ChatRequest, ContentResponse, GuiClientMessage};
-    use rust_roveri_api::{ChatResponse, ContentType};
+    use rust_roveri_api::ChatResponse;
+    use rust_roveri_api::{ChatRequest, ClientGuiMessage, ContentResponse, GuiClientMessage};
     use rust_roveri_api::{ClientCommand, ContentRequest};
     use rust_roveri_api::{ClientEvent, ServerCommand};
-    use rust_roveri_api::{ContentId, FloodId, FragmentId, GuiMessage, SessionId};
     use rust_roveri_api::{Request, ServerType};
     use rust_roveri_api::{Response, ServerEvent};
-    use std::collections::hash_map::Entry;
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::thread;
@@ -455,11 +453,8 @@ mod tests {
     use wg_2024::controller::DroneCommand;
     use wg_2024::controller::DroneEvent;
     use wg_2024::drone::Drone;
-    use wg_2024::network::{NodeId, SourceRoutingHeader};
-    use wg_2024::packet::{
-        Ack, FloodRequest, FloodResponse, Fragment, Nack, NackType, NodeType, Packet, PacketType,
-        FRAGMENT_DSIZE,
-    };
+    use wg_2024::network::NodeId;
+    use wg_2024::packet::Packet;
 
     #[test]
     fn add_drone_test() {
@@ -512,8 +507,7 @@ mod tests {
     fn server_test() {
         // Create browser
         let (message_sender_tx, message_sender_rx) = unbounded();
-        let (message_receiver_tx, message_receiver_rx) = unbounded::<GuiMessage>();
-        //let browser = Browser::new(message_sender_tx.clone(), message_receiver_rx);
+        let (message_receiver_tx, message_receiver_rx) = unbounded();
 
         // Create client channels
         const CLIENT_ID: NodeId = 70;
@@ -542,7 +536,7 @@ mod tests {
             message_sender_rx,
             message_receiver_tx,
         );
-        //client.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
+
         command_recv_tx_client
             .send(ClientCommand::AddDrone(
                 DRONE_1_ID,
@@ -563,7 +557,7 @@ mod tests {
             packet_send_1,
             0.0,
         );
-        let handle_1 = thread::spawn(move || drone_1.run());
+        let _ = thread::spawn(move || drone_1.run());
         controller_recv_tx_1
             .send(DroneCommand::AddSender(
                 CLIENT_ID,
@@ -579,66 +573,76 @@ mod tests {
 
         // Create server
         let mut server = Server::new(SERVER_ID, r01, packet_recv_rx_server, s10, ServerType::Chat);
-        let server_handle = thread::spawn(move || {
+        let _ = thread::spawn(move || {
             server.run();
         });
-        s00.send(ServerCommand::AddDrone(
+        let _ = s00.send(ServerCommand::AddDrone(
             DRONE_1_ID,
             packet_recv_tx_1.clone(),
         ));
-        //s00.send(ServerCommand::SetMediaPath(PathBuf::from("/tmp/")));
-
-        // LIST
-        //let request = ContentRequest::List;
-        //message_sender_tx.send((SERVER_ID, to_allocvec(&request).unwrap()));
-        //let (id, data) = message_receiver_rx.recv().unwrap();
-        //if let Ok(ContentResponse::List(names)) = from_bytes::<ContentResponse>(&data) {
-        //    println!("{:?}", names);
-        //}
 
         // CONTENT
         let request = ChatRequest::Register("ciao".to_string(), "cane".to_string());
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).unwrap(),
         });
 
         let request = ChatRequest::Register("come".to_string(), "xx".to_string());
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).unwrap(),
         });
 
         let request = ChatRequest::Register("ewe".to_string(), "casdcascd".to_string());
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).unwrap(),
         });
 
         let request = ChatRequest::Register("cccccc".to_string(), "cascdac".to_string());
-        message_sender_tx.send(GuiClientMessage::Message {
+        let _ = message_sender_tx.send(GuiClientMessage::Message {
             dst: SERVER_ID,
             data: to_allocvec(&request).unwrap(),
         });
 
-        let (id, data) = message_receiver_rx.recv().unwrap();
-        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
-            println!("{} {:?}", name, vec);
-        }
-        let (id, data) = message_receiver_rx.recv().unwrap();
-        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
-            println!("{} {:?}", name, vec);
-        }
-        let (id, data) = message_receiver_rx.recv().unwrap();
-        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
-            println!("{} {:?}", name, vec);
-        }
-        let (id, data) = message_receiver_rx.recv().unwrap();
+        let data = message_receiver_rx.recv().unwrap();
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
         if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
             println!("{} {:?}", name, vec);
         }
 
-        command_recv_tx_client.send(ClientCommand::Crash);
+        let data = message_receiver_rx.recv().unwrap();
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+
+        let data = message_receiver_rx.recv().unwrap();
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+
+        let data = message_receiver_rx.recv().unwrap();
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+        if let Ok(ChatResponse::ClientList(name, vec)) = from_bytes::<ChatResponse>(&data) {
+            println!("{} {:?}", name, vec);
+        }
+
+        let _ = command_recv_tx_client.send(ClientCommand::Crash);
 
         thread::sleep(Duration::from_millis(100));
         assert!(client_handle.join().is_ok());
@@ -698,7 +702,8 @@ mod tests {
             packet_send_1,
             0.9,
         );
-        let handle_1 = thread::spawn(move || drone_1.run());
+
+        let _ = thread::spawn(move || drone_1.run());
         controller_recv_tx_1
             .send(DroneCommand::AddSender(
                 CLIENT_ID,
@@ -720,7 +725,7 @@ mod tests {
             event_send_tx_server,
             ServerType::Chat,
         );
-        let server_handle = thread::spawn(move || {
+        let _ = thread::spawn(move || {
             server.run();
         });
         command_recv_tx_server.send(ServerCommand::AddDrone(
@@ -739,9 +744,14 @@ mod tests {
         });
 
         // Receive client list
-        let (id, data) = message_receiver_rx
+        let data: ClientGuiMessage = message_receiver_rx
             .recv()
             .expect("Client did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
 
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(response)) => {
@@ -918,7 +928,7 @@ mod tests {
             event_send_tx_server,
             ServerType::ContentText,
         );
-        let server_handle = thread::spawn(move || {
+        let _ = thread::spawn(move || {
             server.run();
         });
         command_recv_tx_server
@@ -937,26 +947,24 @@ mod tests {
 
         // Send list request
         let request = ContentRequest::List;
-        message_sender_tx.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
-        ));
+
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
+        });
 
         // Receive list response
-        let (id, data) = message_receiver_rx
+        let data = message_receiver_rx
             .recv()
             .expect("Client did not receive a ContentResponse");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<ContentResponse>(&data) {
-            Ok(ContentResponse::List(names)) => {
-                /*assert_eq!(
-                    names,
-                    vec![
-                        "src".to_string(),
-                        "Cargo.toml".to_string(),
-                        "README.md".to_string()
-                    ]
-                );*/
-            }
+            Ok(ContentResponse::List(_)) => {}
             _ => panic!("ContentResponse is not a List"),
         }
 
@@ -1203,17 +1211,23 @@ mod tests {
 
         // Send list request
         let request = Request::Content(ContentRequest::List);
-        message_sender_tx.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        message_sender_tx.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert ContentRequest::List to bytes"),
+        });
 
         // Receive list response
-        let (id, data) = message_receiver_rx
+        let data = message_receiver_rx
             .recv()
             .expect("Client did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
-            Ok(Response::Content(ContentResponse::List(names))) => {}
+            Ok(Response::Content(ContentResponse::List(_))) => {}
             _ => panic!("Response is not a ContentResponse of List"),
         }
 
@@ -1295,7 +1309,6 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             message_sender_rx_1,
             message_receiver_tx_1,
         );
-        //client_1.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
         command_recv_tx_client_1
             .send(ClientCommand::AddDrone(
                 DRONE_1_ID,
@@ -1315,7 +1328,6 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             message_sender_rx_2,
             message_receiver_tx_2,
         );
-        //client_2.add_drone(DRONE_1_ID, packet_recv_tx_1.clone());
         command_recv_tx_client_2
             .send(ClientCommand::AddDrone(
                 DRONE_1_ID,
@@ -1336,7 +1348,7 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             packet_send_1,
             PDR,
         );
-        let drone_1_handle = thread::spawn(move || drone_1.run());
+        let _ = thread::spawn(move || drone_1.run());
         controller_recv_tx_1
             .send(DroneCommand::AddSender(
                 CLIENT_1_ID,
@@ -1364,26 +1376,32 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             event_send_tx_server,
             ServerType::Chat,
         );
-        let server_handle = thread::spawn(move || {
+        let _ = thread::spawn(move || {
             server.run();
         });
-        command_recv_tx_server.send(ServerCommand::AddDrone(
+        let _ = command_recv_tx_server.send(ServerCommand::AddDrone(
             DRONE_1_ID,
             packet_recv_tx_1.clone(),
         ));
-        command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
+        let _ = command_recv_tx_server.send(ServerCommand::SetMediaPath(PathBuf::from(".")));
 
         // User 1 registers
         let request = Request::Chat(ChatRequest::Register(USERNAME_1.clone(), PASSWORD_1));
-        message_sender_tx_1.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_1.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 1 receives client list
-        let (id, data) = message_receiver_rx_1
+        let data = message_receiver_rx_1
             .recv()
             .expect("Client did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::ClientList(username, usernames))) => {
                 assert_eq!(username, USERNAME_1);
@@ -1394,15 +1412,21 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         // User 2 registers
         let request = Request::Chat(ChatRequest::Register(USERNAME_2.clone(), PASSWORD_2));
-        message_sender_tx_2.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_2.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 2 receives client list
-        let (id, data) = message_receiver_rx_2
+        let data = message_receiver_rx_2
             .recv()
             .expect("Client did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::ClientList(username, usernames))) => {
                 assert_eq!(username, USERNAME_2);
@@ -1429,15 +1453,21 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             USERNAME_2.clone(),
             MESSAGE_1.clone(),
         ));
-        message_sender_tx_1.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_1.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 2 receives message
-        let (id, data) = message_receiver_rx_2
+        let data = message_receiver_rx_2
             .recv()
             .expect("User 2 did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::Message(username, message))) => {
                 assert_eq!(username, USERNAME_1);
@@ -1452,15 +1482,21 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
             USERNAME_1.clone(),
             MESSAGE_2.clone(),
         ));
-        message_sender_tx_2.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_2.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 1 receives message
-        let (id, data) = message_receiver_rx_1
+        let data = message_receiver_rx_1
             .recv()
             .expect("User 1 did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::Message(username, message))) => {
                 assert_eq!(username, USERNAME_2);
@@ -1471,15 +1507,21 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         // User 1 logs out
         let request = Request::Chat(ChatRequest::Logout(USERNAME_1.clone()));
-        message_sender_tx_1.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_1.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 1 receives ChatResponse
-        let (id, data) = message_receiver_rx_1
+        let data = message_receiver_rx_1
             .recv()
             .expect("User 1 did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::LogoutSuccess(username))) => {
                 assert_eq!(username, USERNAME_1);
@@ -1489,15 +1531,21 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         // User 2 logs out
         let request = Request::Chat(ChatRequest::Logout(USERNAME_2.clone()));
-        message_sender_tx_2.send((
-            SERVER_ID,
-            to_allocvec(&request).expect("Could not convert Request to bytes"),
-        ));
+        let _ = message_sender_tx_2.send(GuiClientMessage::Message {
+            dst: SERVER_ID,
+            data: to_allocvec(&request).expect("Could not convert Request to bytes"),
+        });
 
         // User 2 receives ChatResponse
-        let (id, data) = message_receiver_rx_2
+        let data = message_receiver_rx_2
             .recv()
             .expect("User 2 did not receive a Response");
+
+        let data = match data {
+            ClientGuiMessage::Message { data, .. } => data,
+            _ => panic!("Clientguimessage is not a Message"),
+        };
+
         match from_bytes::<Response>(&data) {
             Ok(Response::Chat(ChatResponse::LogoutSuccess(username))) => {
                 assert_eq!(username, USERNAME_2);
@@ -1507,8 +1555,8 @@ Nunc porta facilisis erat, ac pellentesque mi pharetra cursus. Quisque malesuada
 
         // Crash clients
         thread::sleep(Duration::from_millis(100));
-        command_recv_tx_client_1.send(ClientCommand::Crash);
-        command_recv_tx_client_2.send(ClientCommand::Crash);
+        let _ = command_recv_tx_client_1.send(ClientCommand::Crash);
+        let _ = command_recv_tx_client_2.send(ClientCommand::Crash);
 
         assert!(client_1_handle.join().is_ok());
         assert!(client_2_handle.join().is_ok());

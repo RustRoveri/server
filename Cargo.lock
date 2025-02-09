@@ -93,7 +93,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#7ff4c0e3e2328c1dc9cf69ffd4ec92548a8db0d7"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-client.git#7716efbada7db3fe454842d6d6c1d5088d9b3872"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -192,6 +192,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66f6ddac3e6ac6fd4c3d48bb8b1943472f8da0f43a4303bcd8a18aa594401c80"
 
 [[package]]
+name = "fixedbitset"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,9 +267,9 @@ checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "once_cell"
-version = "1.20.2"
+version = "1.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "owned_ttf_parser"
@@ -391,7 +397,7 @@ dependencies = [
 [[package]]
 name = "rust-roveri"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri.git#eee9ce6c14b262f20bc1d7c18a60deb1f367d5ad"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri.git#2bababfeb0fb77f89f69363ddf6c2c2774ab1915"
 dependencies = [
  "bit-set",
  "crossbeam-channel",
@@ -403,10 +409,11 @@ dependencies = [
 [[package]]
 name = "rust-roveri-api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#95567c716f3709c2931d3a18fea0f77223563b77"
+source = "git+ssh://git@github.com/RustRoveri/rust-roveri-api.git#9c3cbbb3c44e84e2dd3bf70744036fb437a12d8b"
 dependencies = [
  "crossbeam-channel",
  "egui",
+ "fixedbitset",
  "serde",
  "wg_2024",
 ]

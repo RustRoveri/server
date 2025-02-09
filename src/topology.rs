@@ -209,6 +209,7 @@ impl Topology {
             // + the probability that the packet will reach the next drop
             // but it will drop there
             for neighbor in self.graph[position].iter_ones() {
+                // a non-drone node cant be used in the middle of the path
                 if neighbor != dest_id && self.types[neighbor] != NodeType::Drone {
                     continue;
                 }
@@ -356,8 +357,9 @@ mod tests {
         topo.insert_edge((0, NodeType::Client), (1, NodeType::Drone));
         topo.insert_edge((1, NodeType::Drone), (2, NodeType::Drone));
         topo.insert_edge((2, NodeType::Drone), (3, NodeType::Server));
-        topo.insert_edge((3, NodeType::Server), (4, NodeType::Client)); // Non valido: Server -> Client senza Drone
+        topo.insert_edge((3, NodeType::Server), (4, NodeType::Client));
 
+        // Not valid: Server -> Client with no Drone in the middle
         let result = topo.dijkstra(0, 4);
         assert!(matches!(result, Err(RoutingError::NoPathFound)));
     }

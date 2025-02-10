@@ -209,7 +209,7 @@ impl Server {
         session_id: SessionId,
         header: SourceRoutingHeader,
     ) {
-        println!("{} Received fragment", self.get_prefix());
+        println!("{} Fragment received", self.get_prefix());
 
         match self
             .assemblers_manager
@@ -320,7 +320,6 @@ impl Server {
     ///
     /// Sends flood request packets to all neighbors to explore the network topology.
     fn start_network_discovery(&mut self) {
-        println!("STARTING NET DISCOVERY");
         self.topology.reset();
 
         for (_, sender) in self.packet_send.iter() {

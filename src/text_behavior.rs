@@ -7,6 +7,10 @@ use rust_roveri_api::{
 use std::{fs, path::PathBuf};
 use wg_2024::network::NodeId;
 
+fn is_supported(file_name: &String) -> bool {
+    file_name.ends_with(".rrml") || file_name.ends_with(".txt")
+}
+
 /// Manages text-related requests, such as listing or retrieving text files.
 ///
 /// The `TextBehavior` struct implements the `SpecializedBehavior` trait to handle
@@ -85,8 +89,8 @@ impl SpecializedBehavior for TextBehavior {
                         Ok(entry) => {
                             let file_name = entry.file_name();
                             match file_name.into_string() {
-                                Ok(name) => Some(name),
-                                Err(_) => None,
+                                Ok(name) if is_supported(&name) => Some(name),
+                                _ => None,
                             }
                         }
                         Err(_) => None,
@@ -102,7 +106,10 @@ impl SpecializedBehavior for TextBehavior {
                 let mut content_path = self.path.clone();
                 content_path.push(&content_name);
 
-                let response = if !content_path.exists() || !content_path.is_file() {
+                let response = if !content_path.exists()
+                    || !content_path.is_file()
+                    || !is_supported(&content_name)
+                {
                     let response = ContentResponse::ContentNotFound(content_name);
                     response
                 } else {

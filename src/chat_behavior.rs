@@ -205,6 +205,7 @@ impl SpecializedBehavior for ChatBehavior {
         };
 
         let (response, dest) = match content_request {
+            // - `ClientList`: Returns the list of connected clients.
             ChatRequest::ClientList(username) => {
                 let response = if self.is_auth(&username, initiator_id) {
                     ChatResponse::ClientList(username, self.get_client_list())
@@ -215,6 +216,8 @@ impl SpecializedBehavior for ChatBehavior {
                 let response = Response::Chat(response);
                 (response, initiator_id)
             }
+
+            // - `Message`: Sends a message from one client to another.
             ChatRequest::Message(sender, recipient, msg) => {
                 let (response, dest) = match self.can_send_message(sender, initiator_id, recipient)
                 {
@@ -227,6 +230,8 @@ impl SpecializedBehavior for ChatBehavior {
                 let response = Response::Chat(response);
                 (response, dest)
             }
+
+            // - `Register`: Registers a new client with a username and password.
             ChatRequest::Register(username, password) => {
                 let response = match self.register(username.clone(), password, initiator_id) {
                     Ok(_) => ChatResponse::ClientList(username, self.get_client_list()),
@@ -236,6 +241,8 @@ impl SpecializedBehavior for ChatBehavior {
                 let response = Response::Chat(response);
                 (response, initiator_id)
             }
+
+            // - `Login`: Authenticates a client and logs them in.
             ChatRequest::Login(username, password) => {
                 let response = match self.login(&username, &password) {
                     Ok(()) => ChatResponse::ClientList(username, self.get_client_list()),
@@ -245,6 +252,8 @@ impl SpecializedBehavior for ChatBehavior {
                 let response = Response::Chat(response);
                 (response, initiator_id)
             }
+
+            // - `Logout`: Logs a client out of the system.
             ChatRequest::Logout(username) => {
                 let response = match self.logout(&username, initiator_id) {
                     Ok(()) => ChatResponse::LogoutSuccess(username),

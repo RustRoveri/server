@@ -436,7 +436,6 @@ impl Server {
 mod tests {
     use crate::Server;
     use client::client::Client;
-    use core::panic;
     use crossbeam_channel::unbounded;
     use postcard::{from_bytes, to_allocvec};
     use rust_roveri::RustRoveri;

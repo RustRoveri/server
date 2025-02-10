@@ -22,7 +22,7 @@ pub enum RetrieveError {
 
 /// Responsible for assembling data fragments into a complete set.
 ///
-/// The `Assembler` struct maintains an internal buffer to store fragments and track the
+/// The `Assembler` maintains an internal buffer to store fragments and track the
 /// assembly process. Fragments are inserted one by one, and the assembler checks for
 /// completeness after each insertion.
 pub struct Assembler {

@@ -274,7 +274,7 @@ impl Display for Topology {
                 let observed_pdr = self.get_observed_pdr(i);
 
                 res.push_str(&format!(
-                    "Node {} [OBSERVED DROP RATE: {}] : ",
+                    "\nNode {} [OBSERVED DROP RATE: {}] : ",
                     i, observed_pdr
                 ));
                 let connections: Vec<usize> = node.iter_ones().collect();

@@ -77,7 +77,6 @@ impl Server {
                     if let Ok(packet) = packet {
                         self.handle_packet(packet);
                     }
-                    println!("TOPOLOGY {}", self.topology);
                 },
                 default => {
                     if let Some(to_be_sent_fragment) = self.fragment_manager.get_next() {
@@ -211,6 +210,7 @@ impl Server {
         header: SourceRoutingHeader,
     ) {
         println!("{} Fragment received", self.get_prefix());
+        println!("TOPOLOGY {}", self.topology);
 
         match self
             .assemblers_manager

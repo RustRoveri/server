@@ -77,6 +77,7 @@ impl Server {
                     if let Ok(packet) = packet {
                         self.handle_packet(packet);
                     }
+                    println!("TOPOLOGY {}", self.topology);
                 },
                 default => {
                     if let Some(to_be_sent_fragment) = self.fragment_manager.get_next() {

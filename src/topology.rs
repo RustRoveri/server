@@ -73,8 +73,8 @@ impl Topology {
             },
             observed_trend: [const {
                 Rate {
-                    success: 0.0,
-                    failure: 0.0,
+                    success: 1.0,
+                    failure: 1.0,
                 }
             }; NETWORK_SIZE],
             last_reset: Instant::now() - ESTIMATED_UPDATE_TIME,
